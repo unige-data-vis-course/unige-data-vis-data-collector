@@ -7,6 +7,6 @@ cd "$REPO_ROOT"
 echo "Running unit tests (pytest)..."
 
 # Run only the tests directory to keep it fast
-python3 -m pytest -q tests
+pytest -q tests
 
 echo "All tests passed."
