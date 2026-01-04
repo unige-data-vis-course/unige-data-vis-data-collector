@@ -10,7 +10,6 @@ from unige_data_vis_data_collector.meteoswiss import (
     get_all_stations,
 )
 
-
 # Use local test resources instead of downloading from the web
 RESOURCES_DIR = Path(__file__).resolve().parent / "resources"
 SMN_CSV = RESOURCES_DIR / "ogd-smn_meta_stations.csv"
@@ -26,7 +25,7 @@ class TestStationsLoading(unittest.TestCase):
     def test_load_precip_no_encoding_error(self):
         df = load_precip_stations(PRECIP_CSV)
         self.assertIsInstance(df, pd.DataFrame)
-        self.assertEqual(141,len(df))
+        self.assertEqual(141, len(df))
 
 
 @pytest.mark.parametrize(
