@@ -1,0 +1,4 @@
+ pystac-client
+ requests
+ pandas
+ pytest
