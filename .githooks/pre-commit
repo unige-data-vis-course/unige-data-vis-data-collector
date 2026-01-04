@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Ensure we run from the repo root
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Run lint and tests
+"$REPO_ROOT/.githooks/pre-commit-lint"
+"$REPO_ROOT/.githooks/pre-commit-tests"

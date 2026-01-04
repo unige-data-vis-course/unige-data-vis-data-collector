@@ -7,3 +7,4 @@
   * [x] Create a github action CI/CD to lint with flake8, excluding dist,build,venv,.venv,tmp,out
   * [x] In the unit test, stations lists should be loaded from the files in the test/unige_data_vis_data_collector/meteoswiss/resources directory, not from the web
   * [x] create a github action to run the unit tests
+  * [x] create 2 git pre-commit hooks to lint (excluding dist,build,venv,.venv,tmp,out) and run the unit tests

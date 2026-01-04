@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+echo "Running flake8 lint..."
+
+EXCLUDES="dist,build,venv,.venv,tmp,out"
+
+# Prefer python -m to ensure we use the project environment
+python3 -m flake8 --exclude "$EXCLUDES" .
+
+echo "flake8 passed."
