@@ -11,36 +11,38 @@ from unige_data_vis_data_collector.meteoswiss import (
 )
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# Use local test resources instead of downloading from the web
+RESOURCES_DIR = Path(__file__).resolve().parent / "resources"
+SMN_CSV = RESOURCES_DIR / "ogd-smn_meta_stations.csv"
+PRECIP_CSV = RESOURCES_DIR / "ogd-smn-precip_meta_stations.csv"
 
 
 class TestStationsLoading(unittest.TestCase):
     def test_load_smn_no_encoding_error(self):
-        df = load_smn_stations()
+        df = load_smn_stations(SMN_CSV)
         self.assertIsInstance(df, pd.DataFrame)
-        self.assertGreater(len(df), 0)
+        self.assertEqual(158, len(df))
 
     def test_load_precip_no_encoding_error(self):
-        df = load_precip_stations()
+        df = load_precip_stations(PRECIP_CSV)
         self.assertIsInstance(df, pd.DataFrame)
-        self.assertGreater(len(df), 0)
-        print(df)
+        self.assertEqual(141,len(df))
 
 
 @pytest.mark.parametrize(
-    "code, loader",
+    "code, loader, path",
     [
-        ("GVE", load_smn_stations),
-        ("BEX", load_precip_stations),
+        ("GVE", load_smn_stations, SMN_CSV),
+        ("BEX", load_precip_stations, PRECIP_CSV),
     ],
 )
-def test_known_codes_present(code, loader):
-    df = loader()
+def test_known_codes_present(code, loader, path):
+    df = loader(path)
     assert code in set(df["station_abbr"].astype(str))
 
 
 def test_combined_union_and_flags():
-    stations = get_all_stations()
+    stations = get_all_stations(SMN_CSV, PRECIP_CSV)
     by_abbr = {s.abbr: s for s in stations}
 
     assert "GVE" in by_abbr
