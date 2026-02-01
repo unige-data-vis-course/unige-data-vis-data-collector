@@ -4,7 +4,18 @@ This project is about importing data from various sources, to feed a data visual
 
 
 
+
+
 ## Sources
+## GapMinder
+
+gapminder (from https://github.com/open-numbers/ddf--gapminder--fasttrack.git) are included as a got submodule
+
+Git update the data with
+
+    git submodule update --init --recursive
+
+
 ### MeteoSwiss
 The goal is to import weather data and forecasts from MeteoSwiss, for all recording/forecasting stations.
 
