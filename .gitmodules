@@ -1,0 +1,3 @@
+[submodule "data/ddf--gapminder--fasttrack"]
+	path = data/ddf--gapminder--fasttrack
+	url = https://github.com/open-numbers/ddf--gapminder--fasttrack.git
