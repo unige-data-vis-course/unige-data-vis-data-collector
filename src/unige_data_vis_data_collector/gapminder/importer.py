@@ -3,22 +3,35 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Union
 
+import pandas as pd
+from pandas import DataFrame
+
 from .models import GapminderConcept, GapminderConcepts
 import csv
 
 
 class GapminderImporter:
-    def __init__(self, source_dir: Union[str, Path]):
-        self.source_dir = self._normalize_source_dir(source_dir)
+    source_dir: Path
 
-    @staticmethod
-    def _normalize_source_dir(source_dir: Union[str, Path]) -> Path:
-        return source_dir if isinstance(source_dir, Path) else Path(source_dir)
+    def __init__(self,
+                 source_dir: Union[str, Path] = "data/ddf--gapminder--fasttrack/"
+                 ):
+        self.source_dir = self._normalize_source_dir(source_dir)
 
     def load_concepts(self) -> GapminderConcepts:
         path = self._resolve_concepts_path()
         rows = self._read_concepts_csv(path)
         return [self._row_to_concept(r) for r in rows]
+
+    def country_data(self, concept_id: str) -> DataFrame:
+        return pd.read_csv(self.country_csv_filename(concept_id))
+
+    def country_csv_filename(self, concept_id: str) -> Path:
+        return self.source_dir / "countries_etc_datapoints" / f"ddf--datapoints--{concept_id}--by--country--time.csv"
+
+    @staticmethod
+    def _normalize_source_dir(source_dir: Union[str, Path]) -> Path:
+        return source_dir if isinstance(source_dir, Path) else Path(source_dir)
 
     def _resolve_concepts_path(self) -> Path:
         primary = self.source_dir / "ddf-concepts.csv"

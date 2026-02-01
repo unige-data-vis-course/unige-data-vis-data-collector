@@ -54,3 +54,7 @@ The democracy index is calculated from the 60 indicators, divided into five ""su
 The sub-indexes are based on the sum of scores on roughly 12 indicators per sub-index, converted into a score between 0 and 100.
 (The Economist publishes the index with a scale from 0 to 10, but Gapminder has converted it to 0 to 100 to make it easier to communicate as a percentage.)",Percent,democracy_eiu,,percent,,,,
 ```
+- [x] in gapminder_build_local.py, build a script with argparse.
+  - the script should intanciate the GappminderImport with the directory data/ddf--gapminder--fasttrack/ by default
+  - it should have a an option --list-concepts that loads the `ddf--concepts.csv` file and print, for each concept id:description_short
+- 
