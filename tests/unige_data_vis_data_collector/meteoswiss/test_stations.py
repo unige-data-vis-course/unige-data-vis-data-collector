@@ -1,9 +1,9 @@
 import unittest
-from pathlib import Path
 
 import pandas as pd
 import pytest
 
+from tests.unige_data_vis_data_collector.meteoswiss import RESOURCES_DIR
 from unige_data_vis_data_collector.meteoswiss import (
     load_smn_stations,
     load_precip_stations,
@@ -11,7 +11,6 @@ from unige_data_vis_data_collector.meteoswiss import (
 )
 
 # Use local test resources instead of downloading from the web
-RESOURCES_DIR = Path(__file__).resolve().parent / "resources"
 SMN_CSV = RESOURCES_DIR / "ogd-smn_meta_stations.csv"
 PRECIP_CSV = RESOURCES_DIR / "ogd-smn-precip_meta_stations.csv"
 
