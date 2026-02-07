@@ -89,18 +89,9 @@ class TestLoadConcepts(unittest.TestCase):
     def test_load_concepts_primary_filename(self):
         with tempfile.TemporaryDirectory() as td:
             d = Path(td)
-            _write_concepts_csv(d / "ddf-concepts.csv", self._sample_rows())
-            gi = GapminderImporter(source_dir=d)
-            concepts = gi.load_concepts()
-            self.assertEqual(len(concepts), 2)
-            self._assert_gini(concepts[0])
-
-    def test_load_concepts_double_dash_fallback(self):
-        with tempfile.TemporaryDirectory() as td:
-            d = Path(td)
             _write_concepts_csv(d / "ddf--concepts.csv", self._sample_rows())
             gi = GapminderImporter(source_dir=d)
-            concepts = gi.load_concepts()
+            concepts = gi.concepts
             self.assertEqual(len(concepts), 2)
             self._assert_gini(concepts[0])
 

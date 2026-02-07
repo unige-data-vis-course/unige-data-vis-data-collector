@@ -6,7 +6,6 @@ from pathlib import Path
 
 from unige_data_vis_data_collector.gapminder import GapminderImporter
 
-
 DEFAULT_SOURCE = Path("data/ddf--gapminder--fasttrack/")
 
 
@@ -23,6 +22,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="List concepts as 'id:description_short'",
     )
+
+    p.add_argument(
+        "--collate-measures",
+        type=str,
+        help="a list of measure names to collate in a dataframe, separated by commas",
+    )
+
     return p.parse_args(argv)
 
 
@@ -30,24 +36,30 @@ def _get_importer(source_dir: Path) -> GapminderImporter:
     return GapminderImporter(source_dir=source_dir)
 
 
-def _format_concept_line(c) -> str:
-    return f"{c.id}:{c.description_short}"
-
-
 def _cmd_list_concepts(imp: GapminderImporter) -> int:
-    for c in imp.load_concepts():
-        print(_format_concept_line(c))
-    return 0
+    for c in imp.concepts:
+        print(c)
+
+
+def _cmd_collate_measures(imp: GapminderImporter, concept_ids: str):
+    df = None
+    for concept_id in concept_ids.split(','):
+        df_c = imp.country_data(concept_id)
+        df = df_c if df is None else df.merge(df_c, on=['country', 'time'])
+    print(df)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     imp = _get_importer(args.source_dir)
     if args.list_concepts:
-        return _cmd_list_concepts(imp)
+        _cmd_list_concepts(imp)
+
+    if args.collate_measures:
+        _cmd_collate_measures(imp, args.collate_measures)
+
     # If no action provided, show help
-    parse_args(["-h"])  # will print help and exit via SystemExit
-    return 2
+    return 0
 
 
 if __name__ == "__main__":

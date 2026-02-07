@@ -12,16 +12,20 @@ import csv
 
 class GapminderImporter:
     source_dir: Path
+    _concepts: GapminderConcepts | None = None
 
     def __init__(self,
                  source_dir: Union[str, Path] = "data/ddf--gapminder--fasttrack/"
                  ):
         self.source_dir = self._normalize_source_dir(source_dir)
 
-    def load_concepts(self) -> GapminderConcepts:
-        path = self._resolve_concepts_path()
-        rows = self._read_concepts_csv(path)
-        return [self._row_to_concept(r) for r in rows]
+    @property
+    def concepts(self) -> GapminderConcepts:
+        if self._concepts is None:
+            path = self._resolve_concepts_path()
+            rows = self._read_concepts_csv(path)
+            self._concepts = [self._row_to_concept(r) for r in rows]
+        return self._concepts
 
     def country_data(self, concept_id: str) -> DataFrame:
         return pd.read_csv(self.country_csv_filename(concept_id))
@@ -34,13 +38,10 @@ class GapminderImporter:
         return source_dir if isinstance(source_dir, Path) else Path(source_dir)
 
     def _resolve_concepts_path(self) -> Path:
-        primary = self.source_dir / "ddf-concepts.csv"
-        fallback = self.source_dir / "ddf--concepts.csv"
+        primary = self.source_dir / "ddf--concepts.csv"
         if primary.exists():
             return primary
-        if fallback.exists():
-            return fallback
-        raise FileNotFoundError(f"Concepts CSV not found in {self.source_dir}")
+        raise FileNotFoundError(f"Concepts CSV not found in {primary}")
 
     @staticmethod
     def _read_concepts_csv(path: Path) -> list[dict[str, str]]:
