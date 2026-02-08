@@ -24,13 +24,13 @@ class GapminderImporter:
         if self._concepts is None:
             path = self._resolve_concepts_path()
             rows = self._read_concepts_csv(path)
-            self._concepts = [self._row_to_concept(r) for r in rows]
+            self._concepts = GapminderConcepts([self._row_to_concept(r) for r in rows])
         return self._concepts
 
-    def country_data(self, concept_id: str) -> DataFrame:
-        return pd.read_csv(self.country_csv_filename(concept_id))
+    def by_country_data(self, concept_id: str) -> DataFrame:
+        return pd.read_csv(self.by_country_csv_filename(concept_id))
 
-    def country_csv_filename(self, concept_id: str) -> Path:
+    def by_country_csv_filename(self, concept_id: str) -> Path:
         return self.source_dir / "countries_etc_datapoints" / f"ddf--datapoints--{concept_id}--by--country--time.csv"
 
     @staticmethod
@@ -42,6 +42,9 @@ class GapminderImporter:
         if primary.exists():
             return primary
         raise FileNotFoundError(f"Concepts CSV not found in {primary}")
+
+    def country_def_file(self) -> Path:
+        return self.source_dir / "ddf--entities--geo--country.csv"
 
     @staticmethod
     def _read_concepts_csv(path: Path) -> list[dict[str, str]]:

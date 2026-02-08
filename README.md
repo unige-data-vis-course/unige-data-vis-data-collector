@@ -9,21 +9,33 @@ This project is about importing data from various sources, to feed a data visual
 ## Sources
 ## GapMinder
 
-gapminder (from https://github.com/open-numbers/ddf--gapminder--fasttrack.git) are included as a got submodule
 
 Git update the data with
 
-    git submodule update --init --recursive
+    cd data
+    got clone https://github.com/open-numbers/ddf--gapminder--fasttrack.git
+
+### Generate you own Gapminder data subset
+
+List the available concepts
+
+    PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/gapminder_build_local.py --list-concepts
 
 
-### MeteoSwiss
-The goal is to import weather data and forecasts from MeteoSwiss, for all recording/forecasting stations.
+
+    PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/gapminder_build_local.py \
+                   --collate-measures=gini,lex,gdp_pcap \
+                   --countries \
+                   --output=out
 
 ## Development
 
-- Install local python with `venv` module (base is 3.13).
-- tests are run with `pytest`.
-- 
+- Install local python with `.venv` module (base is 3.13).
+    
+    pip install -r requirements.txt
+
+Unit tests are run with `pytest`.
+
 ### Git pre-commit hooks
 This repo provides local Git hooks under `.githooks/` to lint and run tests on every commit.
 

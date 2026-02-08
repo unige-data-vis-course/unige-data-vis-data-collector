@@ -53,8 +53,8 @@ class MultipleFindConceptByIdException(Exception):
 
 
 class GapminderConcepts(list[GapminderConcept]):
-    def concept_by_id(self, id: str) -> GapminderConcept:
-        cs = [c for c in self.concepts if c.id == id]
+    def by_id(self, id: str) -> GapminderConcept:
+        cs = [c for c in self if c.id == id]
         if len(cs) == 0:
             raise CannotFindConceptByIdException(id)
         if len(cs) > 1:
