@@ -22,9 +22,9 @@ def _concepts_path() -> Path:
 class TestGapminderBuildLocal(unittest.TestCase):
     def test_list_concepts_outputs_expected_lines(self):
         expected = [
-            'gini ([pred>=2021]): Gini',
-            'journakilled ([pred>=2024]): Journalists killed',
-            'journaprison ([pred>=2024]): Journalists imprisoned'
+            'gini ([forecast>=2021]): Gini',
+            'journakilled ([forecast>=2024]): Journalists killed',
+            'journaprison ([forecast>=2024]): Journalists imprisoned'
         ]
         buf = io.StringIO()
         with redirect_stdout(buf):

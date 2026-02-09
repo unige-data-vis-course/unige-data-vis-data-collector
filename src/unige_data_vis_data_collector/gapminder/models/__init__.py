@@ -37,7 +37,7 @@ class GapminderConcept:
         raise CannotParseDateException(self.updated_at, formats)
 
     def __str__(self):
-        pred = f"[pred>={self.predicted_since_year}]" if self.predicted_since_year else "[no prediction]"
+        pred = f"[forecast>={self.predicted_since_year}]" if self.predicted_since_year else "[no forecast]"
 
         return f"{self.id} ({pred}): {self.name}"
 

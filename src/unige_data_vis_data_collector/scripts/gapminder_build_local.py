@@ -61,7 +61,7 @@ def _cmd_collate_measures(imp: GapminderImporter, concept_ids: str, output: str)
     for concept_id in concept_ids.split(','):
         df_c = imp.by_country_data(concept_id)
         prediction_since = imp.concepts.by_id(concept_id).predicted_since_year
-        df_c[f"{concept_id}_is_prediction"] = df_c["time"].apply(lambda x: x >= prediction_since)
+        df_c[f"{concept_id}_is_forecast"] = df_c["time"].apply(lambda x: x >= prediction_since)
         df = df_c if df is None else df.merge(df_c, on=['country', 'time'])
 
     Path(output).mkdir(exist_ok=True, parents=True)
