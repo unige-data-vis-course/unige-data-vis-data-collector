@@ -1,0 +1,26 @@
+# Pre-commit hooks configuration
+# Runs Gitleaks for secret scanning and Bandit for Python security analysis
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        # Scan staged changes with redaction; fail on findings
+        pass_filenames: false
+        args: ["--staged", "--redact"]
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        name: Bandit (security linter)
+        # Match CI settings: recurse src, exclude non-source, medium severity/confidence
+        pass_filenames: false
+        args:
+          [
+            "-r", "src",
+            "-x", "tests,venv,.venv,tmp,out,build,dist",
+            "--severity-level", "medium",
+            "--confidence-level", "medium"
+          ]

@@ -19,12 +19,14 @@ Git update the data with
 
 List the available concepts
 
-    PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/gapminder_build_local.py --list-concepts
+    PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/gapminder_build_local.py \
+                   --list-concepts
 
-
+Build a csv (with a is_forecast column) for a selected list of indicators. `--countries` also get the countries list + dimensions.
+Results are saved in `out/` directory.
 
     PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/gapminder_build_local.py \
-                   --collate-measures=gini,lex,gdp_pcap \
+                   --collate-measures=gini,lex,gdp_pcap,child_mortality_0_5_year_olds_dying_per_1000_born,children_per_woman_total_fertility \
                    --countries \
                    --output=out
 
@@ -36,28 +38,24 @@ List the available concepts
 
 Unit tests are run with `pytest`.
 
-### Git pre-commit hooks
-This repo provides local Git hooks under `.githooks/` to lint and run tests on every commit.
-
-Enable them once in this repository:
-
-```
-git config core.hooksPath .githooks
-```
+### Pre-commit hooks (DevSecOps)
+This repo uses `pre-commit` to run security checks locally before each commit.
 
 What runs on commit:
-- Lint: `flake8` excluding `dist,build,venv,.venv,tmp,out`
-- Tests: `pytest` on the `tests/` directory
+- Gitleaks: secret scanning with redaction
+- Bandit: Python security static analysis over `src/` (excluding `tests, venv, .venv, tmp, out, build, dist`) with minimum severity and confidence set to `medium`.
 
-You can run the scripts manually too:
-
-```
-.githooks/pre-commit-lint
-.githooks/pre-commit-tests
-```
-
-Make sure your environment has the dev dependencies installed:
+Setup once per machine:
 
 ```
-pip install -r requirements.txt
+pip install pre-commit
+pre-commit install
 ```
+
+Run on all files (optional, e.g., first time):
+
+```
+pre-commit run --all-files
+```
+
+Configuration lives in `.pre-commit-config.yaml`. The CI also runs the same checks via GitHub Actions.
