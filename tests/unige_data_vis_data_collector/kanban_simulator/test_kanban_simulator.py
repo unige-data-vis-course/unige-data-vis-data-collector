@@ -1,7 +1,7 @@
 from datetime import datetime
 from unittest import TestCase
 
-from unige_data_vis_data_collector.kanban_simulator import TicketStatus, NoNextStatusException, Ticket
+from unige_data_vis_data_collector.kanban_simulator import TicketStatus, NoNextStatusException, Ticket, NoPreviousStatusException
 
 
 def _ticket_with_history():
@@ -22,7 +22,15 @@ class KanbanSimulatorTest(TestCase):
 
     def test_status_next_last_raises_exception(self):
         with self.assertRaises(NoNextStatusException):
-            TicketStatus.DEPLOYED.next()
+            TicketStatus.list()[-1].next()
+
+    def test_status_previous(self):
+        got = TicketStatus.IN_DEVELOPMENT.previous()
+        self.assertEqual(TicketStatus.DONE_SCOPING, got)
+
+    def test_status_previous_first_raises_exception(self):
+        with self.assertRaises(NoPreviousStatusException):
+            TicketStatus.list()[0].previous()
 
     def test_ticket_status_at_before(self):
         got = _ticket_with_history().status_at(datetime(2022, 1, 1))

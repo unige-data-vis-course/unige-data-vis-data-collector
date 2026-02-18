@@ -1,6 +1,7 @@
 import math
 import random
 from datetime import datetime, timedelta
+from typing import Optional, Callable
 
 from pydantic import BaseModel
 
@@ -13,6 +14,7 @@ class IncrementConfig(BaseModel):
     backlog_entry_period: float
     deployment_period: float
     status_period: dict[TicketStatus, float]
+    status_wip_limit: dict[TicketStatus, int]
 
     def rnd_next_backlog_entry(self, timestamp: datetime) -> datetime:
         return timestamp + timedelta(days=-math.log(random.random()) * self.backlog_entry_period)
@@ -29,6 +31,9 @@ class IncrementConfig(BaseModel):
         """
         nb_days = ((timestamp - start_time).days // self.deployment_period + 1) * (self.deployment_period)
         return start_time + timedelta(days=nb_days)
+
+    def wip_limit(self, status: TicketStatus) -> Optional[int]:
+        return self.status_wip_limit.get(status, None)
 
 
 class BoardEngine:
@@ -57,14 +62,24 @@ class BoardEngine:
             ticket_collection.append(ticket)
 
     def simulate_ticket_list_evolution(self, ticket_collection: TicketCollection):
-        for ticket in ticket_collection.tickets:
-            self.simulate_ticket_evolution(ticket)
+        def status_contraints(status: TicketStatus, at: datetime) -> datetime:
+            if self.increment_config.wip_limit(status) is None:
+                return at
+            print(f"Checking contraints for {status} at {at} (<={self.increment_config.wip_limit(status)})")
+            ret = ticket_collection.next_slot_with_status_wip_limit(status, at, self.increment_config.wip_limit(status))
+            print(f"==>{ret}")
+            return ret
 
-    def simulate_ticket_evolution(self, ticket: Ticket):
+        for ticket in ticket_collection.tickets:
+            self.simulate_ticket_evolution(ticket, status_contraints)
+
+    def simulate_ticket_evolution(self, ticket: Ticket, status_constraints: Callable[[TicketStatus, datetime], datetime] = None):
         """
         Ticket is created with a BACKLOG status. We want to populate it with the other statuses, depending on transition frequencies
         The ticket object is updated accordingly
-        :param ticket:
+        :param ticket: the ticket to modify
+        :param status_constraints: a function that takes a TicketStatus and requested datetime for transition to.
+        If defined, it will return the requested timestamp or a later one when some constraints are fullfilled
         :return: None
         """
 
@@ -72,5 +87,10 @@ class BoardEngine:
         status_auto = TicketStatus.list()[:-2]
         for st in status_auto:
             td = self.increment_config.rnd_status_duration(st)
-            ticket.update_status(st.next(), ticket.end_date + td)
+            requested_date = ticket.end_date + td
+            if status_constraints is None:
+                actual_date = requested_date
+            else:
+                actual_date = status_constraints(st.next(), requested_date)
+            ticket.update_status(st.next(), actual_date)
         ticket.update_status(TicketStatus.DEPLOYED, self.increment_config.next_deployment_date(self.start_date, ticket.end_date))

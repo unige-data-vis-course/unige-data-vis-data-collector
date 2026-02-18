@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from unige_data_vis_data_collector.kanban_simulator import Ticket, TicketStatus
@@ -37,8 +37,23 @@ class TicketCollection:
     def find_by_status(self, status: TicketStatus) -> list[Ticket]:
         return [x for x in self._tickets if x.status == status]
 
+    def count_by_status_at(self, status: TicketStatus, at: datetime) -> int:
+        return len(self.find_by_status_at(status, at))
+
     def find_by_status_at(self, status: TicketStatus, at: datetime) -> list[Ticket]:
         return [x for x in self._tickets if x.status_at(at) == status]
+
+    def next_slot_with_status_wip_limit(self, status: TicketStatus, at: datetime, wip_limit: int) -> datetime:
+        if wip_limit <= 0:
+            raise ValueError("wip_limit must be positive")
+        tickets = self.find_by_status_at(status, at)
+        print(f"nb tickets with status {status} at {at}: {len(tickets)}")
+        if len(tickets) < wip_limit:
+            return at
+        next_status = status.next()
+        next_at = min(t.status_history[next_status] for t in self.find_by_status_at(status, at)) + timedelta(seconds=1)
+        print(f"trying {next_at}")
+        return self.next_slot_with_status_wip_limit(status, next_at, wip_limit)
 
     def __len__(self):
         return len(self._tickets)
@@ -49,6 +64,9 @@ class TicketCollection:
     def board(self, at: datetime) -> str:
         status_names = [x.name for x in TicketStatus.list()]
         satus_text_max_length = max(len(s) for s in status_names)
+
+        for s in TicketStatus.list():
+            print(f"{s.name}: {self.count_by_status_at(s, at)}")
 
         buf = "| " + " | ".join([x.ljust(satus_text_max_length) for x in status_names]) + " |\n"
 

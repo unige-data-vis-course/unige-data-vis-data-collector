@@ -7,7 +7,14 @@ class NoNextStatusException(Exception):
     pass
 
 
+class NoPreviousStatusException(Exception):
+    pass
+
+
 class TicketStatus(Enum):
+    """
+    SEquence of ticket statuses. Must be incremented by one to navigate previous/next
+    """
     BACKLOG = 1
     IN_SCOPING = 2
     DONE_SCOPING = 3
@@ -22,17 +29,30 @@ class TicketStatus(Enum):
         return TicketStatus.DEPLOYED
 
     @staticmethod
-    def before_last_status(self) -> "TicketStatus":
+    def before_last_status() -> "TicketStatus":
         return TicketStatus.DONE_TESTING
 
     @staticmethod
-    def list():
+    def list() -> list["TicketStatus"]:
         return sorted(TicketStatus, key=lambda x: x.value)
 
     def next(self) -> "TicketStatus":
+        """
+        return the previous status in the sequential list. Raises for the last one.
+        :return:
+        """
         if self == self.__class__.DEPLOYED:
             raise NoNextStatusException(f"No next status for {self}")
         return self.__class__(self.value + 1)
+
+    def previous(self) -> "TicketStatus":
+        """
+        returns the next status in the sequential list. Raises for the first one
+        :return:
+        """
+        if self == self.__class__.BACKLOG:
+            raise NoPreviousStatusException(f"No previsous status for {self}")
+        return self.__class__(self.value - 1)
 
     def __str__(self):
         return self.name
