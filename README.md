@@ -7,8 +7,7 @@ This project is about importing data from various sources, to feed a data visual
 
 
 ## Sources
-## GapMinder
-
+### GapMinder
 
 Git update the data with
 
@@ -29,6 +28,9 @@ Results are saved in `out/` directory.
                    --collate-measures=gini,lex,gdp_pcap,child_mortality_0_5_year_olds_dying_per_1000_born,children_per_woman_total_fertility \
                    --countries \
                    --output=out
+
+### Kanban simulator
+The goal is to simulate a ticket list evolution on a kanban board
 
 ## Development
 
