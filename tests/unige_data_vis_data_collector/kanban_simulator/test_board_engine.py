@@ -54,6 +54,7 @@ class BoardEngineTest(TestCase):
         engine = BoardEngine(_config(), start_date=_start_date)
 
         engine.simulate_ticket_evolution(got)
+        print(got)
         self.assertEqual(TicketStatus.DEPLOYED, got.status)
         self.assertEqual(TicketStatus.DEPLOYED.value, len(got.status_history))
 

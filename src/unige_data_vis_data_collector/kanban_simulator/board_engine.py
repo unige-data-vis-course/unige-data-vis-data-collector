@@ -65,10 +65,7 @@ class BoardEngine:
         def status_contraints(status: TicketStatus, at: datetime) -> datetime:
             if self.increment_config.wip_limit(status) is None:
                 return at
-            print(f"Checking contraints for {status} at {at} (<={self.increment_config.wip_limit(status)})")
-            ret = ticket_collection.next_slot_with_status_wip_limit(status, at, self.increment_config.wip_limit(status))
-            print(f"==>{ret}")
-            return ret
+            return ticket_collection.next_slot_with_status_wip_limit(status, at, self.increment_config.wip_limit(status))
 
         for ticket in ticket_collection.tickets:
             self.simulate_ticket_evolution(ticket, status_contraints)

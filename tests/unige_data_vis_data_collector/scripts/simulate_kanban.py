@@ -9,12 +9,12 @@ if __name__ == "__main__":
         backlog_entry_period=0.5,
         deployment_period=7,
         status_period={
-            TicketStatus.BACKLOG: 2,
+            TicketStatus.BACKLOG: .5,
             TicketStatus.IN_SCOPING: 2,
-            TicketStatus.DONE_SCOPING: 0.5,
+            TicketStatus.DONE_SCOPING: 0.1,
             TicketStatus.IN_DEVELOPMENT: 10,
-            TicketStatus.DONE_DEVELOPMENT: 2,
-            TicketStatus.IN_TESTING: 2
+            TicketStatus.DONE_DEVELOPMENT: 3,
+            TicketStatus.IN_TESTING: 5
         },
         status_wip_limit={
             TicketStatus.IN_DEVELOPMENT: 3

@@ -47,12 +47,11 @@ class TicketCollection:
         if wip_limit <= 0:
             raise ValueError("wip_limit must be positive")
         tickets = self.find_by_status_at(status, at)
-        print(f"nb tickets with status {status} at {at}: {len(tickets)}")
         if len(tickets) < wip_limit:
             return at
+
         next_status = status.next()
         next_at = min(t.status_history[next_status] for t in self.find_by_status_at(status, at)) + timedelta(seconds=1)
-        print(f"trying {next_at}")
         return self.next_slot_with_status_wip_limit(status, next_at, wip_limit)
 
     def __len__(self):
@@ -64,9 +63,6 @@ class TicketCollection:
     def board(self, at: datetime) -> str:
         status_names = [x.name for x in TicketStatus.list()]
         satus_text_max_length = max(len(s) for s in status_names)
-
-        for s in TicketStatus.list():
-            print(f"{s.name}: {self.count_by_status_at(s, at)}")
 
         buf = "| " + " | ".join([x.ljust(satus_text_max_length) for x in status_names]) + " |\n"
 
