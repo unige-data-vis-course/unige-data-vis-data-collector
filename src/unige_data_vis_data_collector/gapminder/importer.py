@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 from typing import Union
 
@@ -7,7 +8,6 @@ import pandas as pd
 from pandas import DataFrame
 
 from .models import GapminderConcept, GapminderConcepts
-import csv
 
 
 class GapminderImporter:

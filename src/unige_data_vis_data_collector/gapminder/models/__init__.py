@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 
 class CannotParseDateException(Exception):

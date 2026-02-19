@@ -65,7 +65,7 @@ class TicketCollectionTest(TestCase):
     def test_next_slot_with_status_wip_limit_empty(self):
         ticket_collection = TicketCollection()
 
-        got = ticket_collection.next_slot_with_status_wip_limit(TicketStatus.IN_TESTING, _start_date, 10)
+        got = ticket_collection.next_slot_with_status_wip_limit(TicketStatus.IN_TESTING, _start_date, lambda _: 10)
         self.assertEqual(_start_date, got)
 
     def test_next_slot_with_status_wip_limit_below_wip(self):
@@ -74,7 +74,7 @@ class TicketCollectionTest(TestCase):
         ticket_collection.append(_t_with_transitions(2, [0, 4, 5, 7, 12, 15, 20, 25]))
         ticket_collection.append(_t_with_transitions(3, [0, 4, 5, 7, 12, 15, 20, 25]))
 
-        got = ticket_collection.next_slot_with_status_wip_limit(TicketStatus.IN_DEVELOPMENT, _dt(8), 4)
+        got = ticket_collection.next_slot_with_status_wip_limit(TicketStatus.IN_DEVELOPMENT, _dt(8), lambda _: 4)
         self.assertEqual(_dt(8), got)
 
     def test_next_slot_with_status_wip_limit_above_wip(self):
@@ -83,7 +83,7 @@ class TicketCollectionTest(TestCase):
         ticket_collection.append(_t_with_transitions(2, [0, 4, 5, 7, 12, 15, 20, 25]))
         ticket_collection.append(_t_with_transitions(3, [0, 4, 5, 7, 12, 15, 20, 25]))
 
-        got = ticket_collection.next_slot_with_status_wip_limit(TicketStatus.IN_DEVELOPMENT, _dt(8), 3)
+        got = ticket_collection.next_slot_with_status_wip_limit(TicketStatus.IN_DEVELOPMENT, _dt(8), lambda _: 3)
         self.assertEqual(_dt(12) + timedelta(seconds=1), got)
 
     def test_next_slot_with_status_wip_limit_above_wip_next_slot_not_available(self):
@@ -95,5 +95,5 @@ class TicketCollectionTest(TestCase):
         ticket_collection.append(_t_with_transitions(3, [0, 4, 5, 11, 14, 15, 20, 25]))
         ticket_collection.append(_t_with_transitions(3, [0, 4, 5, 11, 17, 18, 20, 25]))
 
-        got = ticket_collection.next_slot_with_status_wip_limit(TicketStatus.IN_DEVELOPMENT, _dt(8), 3)
+        got = ticket_collection.next_slot_with_status_wip_limit(TicketStatus.IN_DEVELOPMENT, _dt(8), lambda _: 3)
         self.assertEqual(_dt(14) + timedelta(seconds=1), got)

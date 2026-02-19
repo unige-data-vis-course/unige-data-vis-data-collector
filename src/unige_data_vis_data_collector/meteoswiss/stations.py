@@ -88,8 +88,8 @@ def _df_to_station_list(df: pd.DataFrame, precip: bool = False) -> List[Station]
 
 
 def get_all_stations(
-    smn_path: Path | str | None = None,
-    precip_path: Path | str | None = None,
+        smn_path: Path | str | None = None,
+        precip_path: Path | str | None = None,
 ) -> List[Station]:
     smn_df = load_smn_stations(smn_path)
     precip_df = load_precip_stations(precip_path)

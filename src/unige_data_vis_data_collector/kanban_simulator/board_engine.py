@@ -13,14 +13,18 @@ class IncrementConfig(BaseModel):
     # all periods/frequency are in days
     backlog_entry_period: float
     deployment_period: float
-    status_period: dict[TicketStatus, float]
-    status_wip_limit: dict[TicketStatus, int]
+    status_period: dict[TicketStatus, float | Callable[[datetime], float]]
+    status_wip_limit: dict[TicketStatus, Optional[int] | Callable[[datetime], Optional[int]]]
 
     def rnd_next_backlog_entry(self, timestamp: datetime) -> datetime:
         return timestamp + timedelta(days=-math.log(random.random()) * self.backlog_entry_period)
 
-    def rnd_status_duration(self, status: TicketStatus) -> timedelta:
-        return timedelta(days=-math.log(random.random()) * self.status_period[status])
+    def rnd_status_duration(self, status: TicketStatus, at: datetime) -> timedelta:
+        if callable(self.status_period[status]):
+            period = self.status_period[status](at)
+        else:
+            period = self.status_period[status]
+        return timedelta(days=-math.log(random.random()) * period)
 
     def next_deployment_date(self, start_time: datetime, timestamp: datetime) -> datetime:
         """
@@ -32,8 +36,16 @@ class IncrementConfig(BaseModel):
         nb_days = ((timestamp - start_time).days // self.deployment_period + 1) * (self.deployment_period)
         return start_time + timedelta(days=nb_days)
 
-    def wip_limit(self, status: TicketStatus) -> Optional[int]:
-        return self.status_wip_limit.get(status, None)
+    def wip_limit(self, status: TicketStatus) -> Callable[[datetime], Optional[int]]:
+        def no_limit(_: datetime) -> Optional[int]:
+            return None
+
+        if status not in self.status_wip_limit:
+            return no_limit
+        if callable(self.status_wip_limit[status]):
+            return self.status_wip_limit[status]
+
+        return lambda _: self.status_wip_limit[status]
 
 
 class BoardEngine:
@@ -63,8 +75,9 @@ class BoardEngine:
 
     def simulate_ticket_list_evolution(self, ticket_collection: TicketCollection):
         def status_contraints(status: TicketStatus, at: datetime) -> datetime:
-            if self.increment_config.wip_limit(status) is None:
+            if self.increment_config.wip_limit(status)(at) is None:
                 return at
+            print(f"{status} - {at} => {self.increment_config.wip_limit(status)(at)}")
             return ticket_collection.next_slot_with_status_wip_limit(status, at, self.increment_config.wip_limit(status))
 
         for ticket in ticket_collection.tickets:
@@ -83,7 +96,7 @@ class BoardEngine:
         # deployment status is based on fixed period
         status_auto = TicketStatus.list()[:-2]
         for st in status_auto:
-            td = self.increment_config.rnd_status_duration(st)
+            td = self.increment_config.rnd_status_duration(st, ticket.end_date)
             requested_date = ticket.end_date + td
             if status_constraints is None:
                 actual_date = requested_date

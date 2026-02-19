@@ -1,3 +1,5 @@
+import csv
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -43,11 +45,11 @@ class TicketCollection:
     def find_by_status_at(self, status: TicketStatus, at: datetime) -> list[Ticket]:
         return [x for x in self._tickets if x.status_at(at) == status]
 
-    def next_slot_with_status_wip_limit(self, status: TicketStatus, at: datetime, wip_limit: int) -> datetime:
-        if wip_limit <= 0:
+    def next_slot_with_status_wip_limit(self, status: TicketStatus, at: datetime, wip_limit: Callable[[datetime], int]) -> datetime:
+        if wip_limit(at) <= 0:
             raise ValueError("wip_limit must be positive")
         tickets = self.find_by_status_at(status, at)
-        if len(tickets) < wip_limit:
+        if len(tickets) < wip_limit(at):
             return at
 
         next_status = status.next()
@@ -81,3 +83,19 @@ class TicketCollection:
                     buf += (" " * satus_text_max_length) + "  |"
             buf += "\n"
         return buf
+
+    def csv_daily_count_by_status(self, filename: str) -> None:
+        day = self.start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        with open(filename, 'w') as f:
+            writer = csv.DictWriter(f, fieldnames=["date", "status", "nb"])
+            writer.writeheader()
+            while day <= self.end_date:
+                cpt_day = {}
+                for ticket in [t for t in self.tickets]:
+                    status = ticket.status_at(day)
+                    if status is None:
+                        continue
+                    cpt_day[status.name] = cpt_day.get(status.name, 0) + 1
+                for status, nb in cpt_day.items():
+                    writer.writerow({"date": day.isoformat(), "status": status, "nb": nb})
+                day += timedelta(days=1)
