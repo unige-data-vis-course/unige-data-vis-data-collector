@@ -11,7 +11,6 @@ if __name__ == "__main__":
 
     def in_dev_wip_limit(at: datetime) -> int:
         nb_days = (at - start_date).days
-        print(f"{at} - {start_date}: {nb_days}")
         if nb_days < 90:
             return 3
         return 6
@@ -48,4 +47,5 @@ if __name__ == "__main__":
 
     print(tickets.board(start_date + timedelta(days=30)))
 
-    tickets.csv_daily_count_by_status("out/kanban-daily-count-by-status.csv")
+    filename_daily_by_status = "out/kanban-daily-by-status.csv"
+    tickets.csv_daily_count_by_status(daily_by_status=filename_daily_by_status)

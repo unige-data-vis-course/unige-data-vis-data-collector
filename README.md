@@ -30,7 +30,9 @@ Results are saved in `out/` directory.
                    --output=out
 
 ### Kanban simulator
-The goal is to simulate a ticket list evolution on a kanban board
+The goal is to simulate a ticket list evolution on a kanban board.
+
+The simplest way is to play with the [simulate_kanban.py](src/unige_data_vis_data_collector/scripts/simulate_kanban.py) script
 
 ## Development
 
