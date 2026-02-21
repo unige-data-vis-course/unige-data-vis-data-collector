@@ -66,4 +66,9 @@ The sub-indexes are based on the sum of scores on roughly 12 indicators per sub-
     * It should load data from the web (stations list and recorded data)
     * It can have an option to save the data in a local csv file. If not given, the data should be printed on the screen
 
-# Kanban_simulator
+# City streets
+- [x] in city_streets package, create a service that loads all streets segment for a given city from https://overpass-turbo.eu/. 
+  - It must load the segments by slice of 100 until there are no more.
+  - Build a object (@dataclass(frozen=True)) that represents a street segment. it must map the overpass-turbo output structure.
+  - concatenate all the segments into a single list
+- [ ] implement the script city_streets_loader.py that loads all street segments for a given city (example "Nyon") and savec the list as JSON in a file
