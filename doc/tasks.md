@@ -102,9 +102,10 @@ The sub-indexes are based on the sum of scores on roughly 12 indicators per sub-
   - I can pass a list of street names
   - the script shall strictly return a JSON array. Each element containing the fields street_name, is_people, gender
   - use Pydantic to define/parse the output type
-- [ ] I want a script to annotate the database with the inferred gender for each street name. The script should:
+- [x] I want a script to annotate the database with the inferred gender for each street name. The script should:
   - load the database from the sqlite file databases/city_streets.db
   - for each street name in the database, call the PeopleGenderInferenceService to get the is_people and gender
   - update the database with the ispeople and gender for each street name
   - proceed by batches of by default 500 street names
   - display the progress in the console with tdqm
+- in PeopleGenderInferenceService, use Pydantic to parse the output of the LLM cal (list[StreetPeopleGenderInferenceItem)]) and provide pydantic instructions to the LLM 

@@ -100,8 +100,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--batch-size",
         type=int,
-        default=500,
-        help="Batch size for inference calls (default: 500)",
+        default=100,
+        help="Batch size for inference calls (default: 100)",
     )
     return p.parse_args(argv)
 
