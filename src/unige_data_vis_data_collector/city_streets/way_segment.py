@@ -53,7 +53,7 @@ class WaySegment:
             try:
                 return int(self.tags["maxspeed"])
             except ValueError:
-                logging.warning(f'cannot parse maxspped {self.tags["maxspeed"]}')
+                logging.info(f'cannot parse maxspeed {self.tags["maxspeed"]}')
                 return None
         return None
 

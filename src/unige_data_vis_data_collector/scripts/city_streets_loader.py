@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -9,6 +10,8 @@ from pathlib import Path
 from unige_data_vis_data_collector.city_streets.overpass_service import (
     OverpassCityStreetsService,
 )
+
+logging.basicConfig(level=logging.INFO)
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -50,13 +53,14 @@ def _loaded_ids(filename: str) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
-    output = args.output or _default_output_path(args.city)
-
     try:
-        service = OverpassCityStreetsService(endpoint=args.endpoint)
-        with open(output, "a", encoding="utf-8") as f:
-            for s in service.load_city_segments(args.city, batch_size=args.batch_size, exclude_ids=_loaded_ids(output)):
-                f.write(json.dumps(s, ensure_ascii=False) + "\n")
+        for city in args.city.split(","):
+            logging.info("Loading city segments for %s", city)
+            output = args.output or _default_output_path(city)
+            service = OverpassCityStreetsService(endpoint=args.endpoint)
+            with open(output, "a", encoding="utf-8") as f:
+                for s in service.load_city_segments(city, batch_size=args.batch_size, exclude_ids=_loaded_ids(output)):
+                    f.write(json.dumps(s, ensure_ascii=False) + "\n")
         return 0
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

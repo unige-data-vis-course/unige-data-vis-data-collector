@@ -34,6 +34,22 @@ The goal is to simulate a ticket list evolution on a kanban board.
 
 The simplest way is to play with the [simulate_kanban.py](src/unige_data_vis_data_collector/scripts/simulate_kanban.py) script
 
+
+### City streets
+The goal is to load city streets data from overpass-turbo API. The shall be saved in a sqlite database and annotated with the gender infomration if the street name is designing people.
+
+#### Loading new data
+**NB**: do not bother with these steps if you already have the city data in the sqlite database `databases/city_streets.db`
+
+There are several steps:
+  - load way segments from overpass-turbo API and saved them in `out/city_streed_CITY.jsonl`
+
+     `PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/city_streets_db_loader.py --city=Genève,Lausanne`
+  - Import all such jsonl files in sqlite database (default is `databases/city_streets.db`)
+    
+    `PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/city_streets_db_loader.py`
+  - annotate the streets table with gender information based on the street name
+
 ## Development
 
 - Install local python with `.venv` module (base is 3.13).

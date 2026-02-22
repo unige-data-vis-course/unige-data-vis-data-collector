@@ -71,4 +71,29 @@ The sub-indexes are based on the sum of scores on roughly 12 indicators per sub-
   - It must load the segments by slice of 100 until there are no more.
   - Build a object (@dataclass(frozen=True)) that represents a street segment. it must map the overpass-turbo output structure.
   - concatenate all the segments into a single list
-- [ ] implement the script city_streets_loader.py that loads all street segments for a given city (example "Nyon") and savec the list as JSON in a file
+- [x] implement the script city_streets_loader.py that loads all street segments for a given city (example "Nyon") and savec the list as JSON in a file
+- [x] Create the script to create a sqlite database with three tables, to store the WaySegment and Ways. Here is the structure
+  - points, to store Point: 
+    - id_segment: int: a reference to the segment id in the segments table
+    - lat (flaot): latitude
+    - lon (float): longitude
+  - segments:
+    - id (int): a unique identifier for the segment
+    - street_name (str): the reference to the street name in the streets table
+    - nb_lanes (nullable int): the number of lanes in the segment (can be null if not available)
+    - max_speed (nullable int): the maximum speed in km/h (can be null if not available)
+  - streets:
+    - name (str): the stree name, which is unique
+    - is_people_name (bool): whether the street name is a people name (True) or otherwise (False)
+    - gender_name (nullable str): the gender of the street name (can be null if not available). Will take a value among (NULL, 'MALE', 'FEMALE', 'NEUTRAL')
+- [x] Create a script to load the data in the database from the JSON files created by the script city_streets_loader.py. The script should:
+  - by default, load all files in out/city_streets_*.jsonl files
+  - by default load in the database file databases/city_streets.db
+  - create the database if it does not exist
+  - use argparse to allow to specify the files to load and the database file to use
+  - load WaySegment from a jsonl file saved by the script city_streets_loader.py. example line
+    {"type": "way", "id": 4077020, "bounds": {"minlat": 46.2052711, "minlon": 6.1576694, "maxlat": 46.2055108, "maxlon": 6.1579247}, "nodes": [2284328095, 12504558750, 963933493, 2839507], "geometry": [{"lat": 46.2052711, "lon": 6.1579247}, {"lat": 46.2053695, "lon": 6.1578192}, {"lat": 46.2054154, "lon": 6.15777}, {"lat": 46.2055108, "lon": 6.1576694}], "tags": {"cycleway:right": "lane", "cycleway:right:start_date": "2020-06", "highway": "residential", "lanes": "3", "lanes:backward": "1", "lanes:forward": "2", "lit": "yes", "name": "Rue du 31-Décembre", "sidewalk": "both", "surface": "asphalt"}}
+  - if the WaySegment already exists (based on id) in the database, skip it.
+  - insert the Way Segment in the database, ensuring the uniqueness of street_name and id_segment
+- [ ] in the database, alter the segment table to add a column to store the city name. Adapt schema and loading scripts accordingly
+  - you can recreate the database from scratch. Do not bother with altering the schema of the existing database. 
