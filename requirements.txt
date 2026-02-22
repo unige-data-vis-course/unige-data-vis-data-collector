@@ -3,4 +3,8 @@
  pandas
  pytest
  flake8
-pysqlite3
+ pysqlite3
+ langchain-openai>=1.1.10
+ python-dotenv
+ tqdm
+ pydantic

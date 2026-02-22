@@ -67,7 +67,7 @@ def _ensure_street(con: sqlite3.Connection, name: str) -> None:
     # We don't know people/gender here, insert a neutral default; uniqueness on name via PK
     con.execute(
         "INSERT OR IGNORE INTO streets(name, is_people_name, gender_name) VALUES (?,?,?)",
-        (name, 0, None),
+        (name, None, None),
     )
 
 

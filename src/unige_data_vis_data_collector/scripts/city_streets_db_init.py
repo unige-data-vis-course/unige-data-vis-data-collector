@@ -25,9 +25,9 @@ def _create_tables(con: sqlite3.Connection) -> None:
         """
         CREATE TABLE IF NOT EXISTS streets (
             name TEXT NOT NULL PRIMARY KEY,
-            is_people_name INTEGER NOT NULL CHECK (is_people_name IN (0, 1)),
+            is_people_name BOOL NULL CHECK ((is_people_name IN (TRUE, FALSE)) OR (is_people_name IS NULL)),
             gender_name TEXT NULL CHECK (
-                gender_name IN ('MALE','FEMALE','NEUTRAL') OR gender_name IS NULL
+                (gender_name IN ('MALE','FEMALE','NEUTRAL')) OR (gender_name IS NULL)
             )
         );
         """

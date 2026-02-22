@@ -43,7 +43,7 @@ class CityStreetsDbInitTest(TestCase):
             }
             self.assertEqual(("TEXT", 0), streets_cols["gender_name"])  # nullable
             self.assertEqual(("TEXT", 1), streets_cols["name"])  # PK is notnull
-            self.assertEqual(("INTEGER", 1), streets_cols["is_people_name"])  # notnull
+            self.assertEqual(("BOOL", 0), streets_cols["is_people_name"])  # notnull
 
             # verify foreign keys
             fk_segments = con.execute("PRAGMA foreign_key_list('segments')").fetchall()
@@ -66,18 +66,18 @@ class CityStreetsDbInitTest(TestCase):
             # valid inserts
             con.execute(
                 "INSERT INTO streets(name, is_people_name, gender_name) VALUES (?,?,?)",
-                ("Rue Alpha", 1, "MALE"),
+                ("Rue Alpha", True, "MALE"),
             )
             con.execute(
                 "INSERT INTO streets(name, is_people_name, gender_name) VALUES (?,?,?)",
-                ("Rue Beta", 1, None),
+                ("Rue Beta", True, None),
             )
 
             # invalid gender must fail
             with self.assertRaises(sqlite3.IntegrityError):
                 con.execute(
                     "INSERT INTO streets(name, is_people_name, gender_name) VALUES (?,?,?)",
-                    ("Rue Gamma", 1, "OTHER"),
+                    ("Rue Gamma", True, "paf"),
                 )
 
     def test_foreign_keys_and_cascade(self):
@@ -85,7 +85,7 @@ class CityStreetsDbInitTest(TestCase):
         with _connect(self.db_path) as con:
             con.execute(
                 "INSERT INTO streets(name, is_people_name, gender_name) VALUES (?,?,?)",
-                ("Rue Delta", 0, None),
+                ("Rue Delta", None, None),
             )
             con.execute(
                 "INSERT INTO segments(id, street_name, city, nb_lanes, max_speed) VALUES (?,?,?,?,?)",

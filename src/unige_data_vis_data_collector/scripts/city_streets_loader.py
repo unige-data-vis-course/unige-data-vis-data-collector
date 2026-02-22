@@ -3,9 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 from unige_data_vis_data_collector.city_streets.overpass_service import (
     OverpassCityStreetsService,
@@ -68,8 +69,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    os.environ["REQUESTS_CA_BUNDLE"] = "/Users/amasselot/zscaler/zscaler-ca-bundle.pem"
-    os.environ["SSL_CERT_FILE"] = "/Users/amasselot/zscaler/zscaler-ca-bundle.pem"
+    load_dotenv()
     try:
         raise SystemExit(main())
     except SystemExit as e:

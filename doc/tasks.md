@@ -90,10 +90,21 @@ The sub-indexes are based on the sum of scores on roughly 12 indicators per sub-
   - by default, load all files in out/city_streets_*.jsonl files
   - by default load in the database file databases/city_streets.db
   - create the database if it does not exist
-  - use argparse to allow to specify the files to load and the database file to use
+  - use argparse to allow to displa the files to load and the database file to use
   - load WaySegment from a jsonl file saved by the script city_streets_loader.py. example line
     {"type": "way", "id": 4077020, "bounds": {"minlat": 46.2052711, "minlon": 6.1576694, "maxlat": 46.2055108, "maxlon": 6.1579247}, "nodes": [2284328095, 12504558750, 963933493, 2839507], "geometry": [{"lat": 46.2052711, "lon": 6.1579247}, {"lat": 46.2053695, "lon": 6.1578192}, {"lat": 46.2054154, "lon": 6.15777}, {"lat": 46.2055108, "lon": 6.1576694}], "tags": {"cycleway:right": "lane", "cycleway:right:start_date": "2020-06", "highway": "residential", "lanes": "3", "lanes:backward": "1", "lanes:forward": "2", "lit": "yes", "name": "Rue du 31-Décembre", "sidewalk": "both", "surface": "asphalt"}}
   - if the WaySegment already exists (based on id) in the database, skip it.
   - insert the Way Segment in the database, ensuring the uniqueness of street_name and id_segment
-- [ ] in the database, alter the segment table to add a column to store the city name. Adapt schema and loading scripts accordingly
+- [x] in the database, alter the segment table to add a column to store the city name. Adapt schema and loading scripts accordingly
   - you can recreate the database from scratch. Do not bother with altering the schema of the existing database. 
+- [x] in PeopleGenderInferenceService, I want a script that will infer if a stree name is a people reference and if yes, tell me the gender NEUTRAL|MALE|FEMALE. thegender is None if the name is not refering to a people.
+  - the script should call an LLM via langchain. LLM model is hosted on Microsoft Azure
+  - I can pass a list of street names
+  - the script shall strictly return a JSON array. Each element containing the fields street_name, is_people, gender
+  - use Pydantic to define/parse the output type
+- [ ] I want a script to annotate the database with the inferred gender for each street name. The script should:
+  - load the database from the sqlite file databases/city_streets.db
+  - for each street name in the database, call the PeopleGenderInferenceService to get the is_people and gender
+  - update the database with the ispeople and gender for each street name
+  - proceed by batches of by default 500 street names
+  - display the progress in the console with tdqm
