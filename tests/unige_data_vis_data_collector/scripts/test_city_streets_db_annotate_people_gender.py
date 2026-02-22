@@ -10,9 +10,7 @@ from unige_data_vis_data_collector.city_streets.people_gender_inference_service 
 from unige_data_vis_data_collector.scripts.city_streets_db_annotate_people_gender import (
     annotate_db,
 )
-from unige_data_vis_data_collector.scripts.city_streets_db_init import (
-    create_city_streets_db,
-)
+from unige_data_vis_data_collector.city_streets.db_model import create_city_streets_db
 
 
 class FakeService:

@@ -9,9 +9,7 @@ from pathlib import Path
 from typing import Iterable
 
 from unige_data_vis_data_collector.city_streets.way_segment import WaySegment
-from unige_data_vis_data_collector.scripts.city_streets_db_init import (
-    create_city_streets_db,
-)
+from unige_data_vis_data_collector.city_streets.db_model import create_city_streets_db
 
 logging.basicConfig(level=logging.INFO)
 
