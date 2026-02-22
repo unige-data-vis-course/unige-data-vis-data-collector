@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from unige_data_vis_data_collector.scripts import city_streets_db_init as script
+import unige_data_vis_data_collector.city_streets.db_model
 
 
 def _connect(path: Path) -> sqlite3.Connection:
@@ -23,7 +23,7 @@ class CityStreetsDbInitTest(TestCase):
         self.tmpdir.cleanup()
 
     def test_create_db_and_tables(self):
-        created = script.create_city_streets_db(self.db_path)
+        created = unige_data_vis_data_collector.city_streets.db_model.create_city_streets_db(self.db_path)
         self.assertTrue(created.exists())
 
         with _connect(created) as con:
@@ -61,7 +61,7 @@ class CityStreetsDbInitTest(TestCase):
             self.assertEqual(("TEXT", 1), segments_cols["city"])  # notnull
 
     def test_gender_check_constraint(self):
-        script.create_city_streets_db(self.db_path)
+        unige_data_vis_data_collector.city_streets.db_model.create_city_streets_db(self.db_path)
         with _connect(self.db_path) as con:
             # valid inserts
             con.execute(
@@ -81,7 +81,7 @@ class CityStreetsDbInitTest(TestCase):
                 )
 
     def test_foreign_keys_and_cascade(self):
-        script.create_city_streets_db(self.db_path)
+        unige_data_vis_data_collector.city_streets.db_model.create_city_streets_db(self.db_path)
         with _connect(self.db_path) as con:
             con.execute(
                 "INSERT INTO streets(name, is_people_name, gender_name) VALUES (?,?,?)",
