@@ -8,17 +8,17 @@ from unige_data_vis_data_collector.kanban_simulator.ticket_collection import Tic
 if __name__ == "__main__":
     start_date = datetime(2026, 1, 1)
 
-
+    nb_tickets = 400
     def in_dev_wip_limit(at: datetime) -> int:
         nb_days = (at - start_date).days
-        if nb_days < 90:
+        if nb_days < 180:
             return 3
         return 6
 
 
     def in_dev_period(at: datetime) -> timedelta:
         nb_days = (at - start_date).days
-        if nb_days < 180:
+        if nb_days < 360:
             return 10
         return 5
 
@@ -42,10 +42,12 @@ if __name__ == "__main__":
     engine = BoardEngine(_config, start_date=start_date)
 
     tickets = TicketCollection()
-    engine.insert_new_tickets(tickets, 200)
+    engine.insert_new_tickets(tickets, nb_tickets)
     engine.simulate_ticket_list_evolution(tickets)
 
     print(tickets.board(start_date + timedelta(days=30)))
 
     filename_daily_by_status = "out/kanban-daily-by-status.csv"
-    tickets.csv_daily_count_by_status(daily_by_status=filename_daily_by_status)
+    filename_ticket_status_transitions = "out/kanban-ticket-status-transitions.csv"
+    tickets.csv_daily_count_by_status(filename=filename_daily_by_status)
+    tickets.csv_ticket_status_transitions(filename=filename_ticket_status_transitions)

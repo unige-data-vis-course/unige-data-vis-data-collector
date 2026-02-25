@@ -55,8 +55,8 @@ class BoardEngineTest(TestCase):
 
         engine.simulate_ticket_evolution(got)
         print(got)
-        self.assertEqual(TicketStatus.DEPLOYED, got.status)
-        self.assertEqual(TicketStatus.DEPLOYED.value, len(got.status_history))
+        self.assertEqual(TicketStatus.last_status(), got.status)
+        self.assertEqual(TicketStatus.last_status().value, len(got.status_history))
 
     def test_simulate_ticket_list_evolution_below_wip(self):
         engine = BoardEngine(_config(), start_date=_start_date)

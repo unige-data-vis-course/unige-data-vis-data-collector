@@ -25,6 +25,10 @@ class TicketStatus(Enum):
     DEPLOYED = 8
 
     @staticmethod
+    def first_status() -> "TicketStatus":
+        return TicketStatus.BACKLOG
+
+    @staticmethod
     def last_status() -> "TicketStatus":
         return TicketStatus.DEPLOYED
 
@@ -72,6 +76,9 @@ class Ticket:
         self.status_history[status] = timestamp
         self.status = status
 
+    def status_transition_date(self, status: TicketStatus) -> Optional[datetime]:
+        return self.status_history.get(status)
+
     @property
     def start_date(self) -> datetime:
         return min(self.status_history.values())
@@ -79,6 +86,21 @@ class Ticket:
     @property
     def end_date(self) -> datetime:
         return max(self.status_history.values())
+
+    def _delta_time_between_status(self, from_status: TicketStatus, to_status: TicketStatus) -> Optional[float]:
+        end = self.status_transition_date(from_status)
+        start = self.status_transition_date(to_status)
+        if end is None or start is None:
+            return None
+        return (end - start).total_seconds() / (24 * 3600)
+
+    @property
+    def lead_time_days(self) -> Optional[float]:
+        return self._delta_time_between_status(TicketStatus.DEPLOYED, TicketStatus.BACKLOG)
+
+    @property
+    def cycles_time_days(self) -> Optional[float]:
+        return self._delta_time_between_status(TicketStatus.DEPLOYED, TicketStatus.DONE_SCOPING)
 
     def status_at(self, timestamp: datetime) -> Optional[TicketStatus]:
         if timestamp < self.start_date:

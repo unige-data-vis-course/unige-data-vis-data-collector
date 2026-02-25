@@ -31,8 +31,18 @@ Results are saved in `out/` directory.
 
 ### Kanban simulator
 The goal is to simulate a ticket list evolution on a kanban board.
+- A ticket status goes from BACKLOG to DEPLOYED via a list of intermediary steps (IN_SCOPING, DONE_SCOPING, IN_DEVELOPMENT...). The full list can be found [here](src/unige_data_vis_data_collector/kanban_simulator/__init__.py)
+- we can define a experiment duration, as the number of ticket that will flow through
+- We shal define transition period (average of the Poison distrubtion) for each status. These period can be cahnge dynmically through a function of time
+- It is possible to define WIP limit (the maximum number of ticket that can be in one status at the given moment). Also setable through functions of time
+- the DEPLOYED transition can happen at a given pace (every 7 days, for example) 
 
-The simplest way is to play with the [simulate_kanban.py](src/unige_data_vis_data_collector/scripts/simulate_kanban.py) script
+The simplest way is to play with the [simulate_kanban.py](src/unige_data_vis_data_collector/scripts/simulate_kanban.py) script.
+Parameters as the simulation duration, dynamic WIP etc. are set into the script.
+
+It output two files:
+  - [kanban-daily-count-by-status.csv](out/kanban-daily-count-by-status.csv): for each day of the simultion, the number of tickets that falls in each status
+  - [kanban-ticket-status-transitions.csv](out/kanban-ticket-status-transitions.csv): For each ticket, the date of all status transitions.
 
 
 ### City streets

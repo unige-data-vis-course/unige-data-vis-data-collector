@@ -28,6 +28,16 @@ class KanbanSimulatorTest(TestCase):
         got = TicketStatus.IN_DEVELOPMENT.previous()
         self.assertEqual(TicketStatus.DONE_SCOPING, got)
 
+    def test_lead_time_days(self):
+        ticket = Ticket(1, TicketStatus.BACKLOG, datetime(2022, 2, 1))
+        ticket.update_status(TicketStatus.DEPLOYED, datetime(2022, 2, 10))
+        self.assertEqual(9, ticket.lead_time_days)
+
+    def test_lead_time_days_fraction(self):
+        ticket = Ticket(1, TicketStatus.BACKLOG, datetime(2022, 2, 1))
+        ticket.update_status(TicketStatus.DEPLOYED, datetime(2022, 2, 10, 18, 0, 0))
+        self.assertEqual(9.75, ticket.lead_time_days)
+
     def test_status_previous_first_raises_exception(self):
         with self.assertRaises(NoPreviousStatusException):
             TicketStatus.list()[0].previous()

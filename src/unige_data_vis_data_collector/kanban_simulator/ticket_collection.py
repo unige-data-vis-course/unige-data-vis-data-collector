@@ -99,3 +99,17 @@ class TicketCollection:
                 for status, nb in cpt_day.items():
                     writer.writerow({"date": day.isoformat(), "status": status, "nb": nb})
                 day += timedelta(days=1)
+
+    def csv_ticket_status_transitions(self, filename: str):
+        with open(filename, 'w') as f:
+            statuses = TicketStatus.list()
+            writer = csv.DictWriter(f, fieldnames=["ticket_id", "start_date", "end_date"] + [st.name for st in statuses])
+            writer.writeheader()
+            for t in self.tickets:
+                row = {"ticket_id": t.id, "start_date": t.start_date.isoformat(), "end_date": t.end_date.isoformat()}
+                for st in statuses:
+                    ts = t.status_transition_date(st)
+                    if ts is not None:
+                        ts = ts.isoformat()
+                    row[st.name] = ts
+                writer.writerow(row)
