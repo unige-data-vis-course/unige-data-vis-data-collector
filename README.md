@@ -36,19 +36,29 @@ The simplest way is to play with the [simulate_kanban.py](src/unige_data_vis_dat
 
 
 ### City streets
-The goal is to load city streets data from overpass-turbo API. The shall be saved in a sqlite database and annotated with the gender infomration if the street name is designing people.
+The goal is to load city streets data from overpass-turbo API. The shall be saved in a sqlite database and annotated with the gender information if the street name is designing people.
 
-#### Loading new data
+#### Export DB to csv files
+
+To import into Tableau Public. the Sqlite database must be exported to csv files.
+
+    `PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/city_streets_db_to_csv.py`
+
+
+#### Loading new data into the database
 **NB**: do not bother with these steps if you already have the city data in the sqlite database `databases/city_streets.db`
 
 There are several steps:
   - load way segments from overpass-turbo API and saved them in `out/city_streed_CITY.jsonl`
 
-     `PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/city_streets_db_loader.py --city=Genève,Lausanne`
+     `PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/city_streets_db_downloader.py --city=Genève,Lausanne`
   - Import all such jsonl files in sqlite database (default is `databases/city_streets.db`)
     
     `PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/city_streets_db_loader.py`
   - annotate the streets table with gender information based on the street name
+
+    `PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/city_streets_db_annotate_people_gender.py`
+
 
 ## Development
 

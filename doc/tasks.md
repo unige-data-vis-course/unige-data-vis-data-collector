@@ -108,4 +108,9 @@ The sub-indexes are based on the sum of scores on roughly 12 indicators per sub-
   - update the database with the ispeople and gender for each street name
   - proceed by batches of by default 500 street names
   - display the progress in the console with tdqm
-- in PeopleGenderInferenceService, use Pydantic to parse the output of the LLM cal (list[StreetPeopleGenderInferenceItem)]) and provide pydantic instructions to the LLM 
+- [ ] in PeopleGenderInferenceService, use Pydantic to parse the output of the LLM cal (list[StreetPeopleGenderInferenceItem)]) and provide pydantic instructions to the LLM
+- make a script `city_streets_db_to_csv.py` that converts the sqlite database to a list of csv files.
+  - points.csv, segments.csv, streets.csv
+  - by default, save the files in `out/city_streets_csv/`
+  - by default, load the database from databases/city_streets.db
+  - 
