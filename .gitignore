@@ -6,3 +6,5 @@ __pycache__
 /tmp
 /data/ddf--gapminder--fasttrack/
 /out/
+/kanban-simulator.html
+.DS_Store

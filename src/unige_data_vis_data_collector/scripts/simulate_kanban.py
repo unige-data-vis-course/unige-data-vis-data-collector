@@ -11,31 +11,39 @@ if __name__ == "__main__":
     nb_tickets = 400
     def in_dev_wip_limit(at: datetime) -> int:
         nb_days = (at - start_date).days
-        if nb_days < 180:
+        if nb_days < 90:
             return 3
         return 6
 
 
     def in_dev_period(at: datetime) -> timedelta:
         nb_days = (at - start_date).days
-        if nb_days < 360:
-            return 10
-        return 5
+        if nb_days < 180:
+            return 8
+        if nb_days < 270:
+            return 4
+        return 6
 
+    def in_test_period(at: datetime) -> timedelta:
+        nb_days = (at - start_date).days
+        if nb_days < 270:
+            return 5
+        return 2.5
 
     _config = IncrementConfig(
-        backlog_entry_period=0.5,
+        backlog_entry_period=1,
         deployment_period=7,
         status_period={
             TicketStatus.BACKLOG: 1,
-            TicketStatus.IN_SCOPING: 2,
+            TicketStatus.IN_SCOPING: 3,
             TicketStatus.DONE_SCOPING: 0.1,
             TicketStatus.IN_DEVELOPMENT: in_dev_period,
             TicketStatus.DONE_DEVELOPMENT: 3,
-            TicketStatus.IN_TESTING: 5
+            TicketStatus.IN_TESTING: 2.5
         },
         status_wip_limit={
-            TicketStatus.IN_DEVELOPMENT: in_dev_wip_limit
+            TicketStatus.IN_DEVELOPMENT: in_dev_wip_limit,
+            TicketStatus.IN_TESTING: 3
         }
     )
 
@@ -44,8 +52,6 @@ if __name__ == "__main__":
     tickets = TicketCollection()
     engine.insert_new_tickets(tickets, nb_tickets)
     engine.simulate_ticket_list_evolution(tickets)
-
-    print(tickets.board(start_date + timedelta(days=30)))
 
     filename_daily_by_status = "out/kanban-daily-by-status.csv"
     filename_ticket_status_transitions = "out/kanban-ticket-status-transitions.csv"

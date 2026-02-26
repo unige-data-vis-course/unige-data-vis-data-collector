@@ -1,0 +1,315 @@
+---
+title: "Kanban simulation metrics"
+output:
+  ioslides_presentation:
+    theme: flatly
+    widescreen: true
+author: "Alexandre Masselot"
+date: "2019-01-01"
+---
+```{r package_setup, echo = FALSE, message = FALSE, warning = FALSE}
+# https://chatgpt.com/c/699f73a9-eb58-8337-9f49-6b0525b21ff7
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+  # Interactive in RStudio: use the current editor document path
+  rmd_path <- rstudioapi::getActiveDocumentContext()$path
+} else {
+  # When knitting/rendering: knitr knows the input
+  rmd_path <- knitr::current_input(dir = TRUE)
+}
+if (!is.null(rmd_path) && nzchar(rmd_path)) {
+  knitr::opts_knit$set(root.dir = dirname(normalizePath(rmd_path)))
+  setwd(dirname(normalizePath(rmd_path)))
+}
+
+knitr::opts_chunk$set(
+  fig.width = 12,   # increase width
+  fig.height = 6,
+  out.width = "100%"   # VERY IMPORTANT
+)
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+```{r loading_data, echo = FALSE}
+df.daily.status = read.csv( "kanban-daily-by-status.csv")
+
+#convert $date to date
+df.daily.status$date = as.Date(df.daily.status$date)
+
+# order the statuses
+status_list = c("BACKLOG", "IN_SCOPING", "DONE_SCOPING", "IN_DEVELOPMENT", "DONE_DEVELOPMENT", "IN_TESTING", "DONE_TESTING", "DEPLOYED")
+df.daily.status$status <- factor(
+  df.daily.status$status,
+  levels = status_list
+)
+
+#assign status => colors
+status_colors = c(
+  "BACKLOG" = rgb(231, 41, 138, alpha = 100, maxColorValue = 255),
+  "IN_SCOPING" = rgb(231, 41, 138, maxColorValue = 255),
+  "DONE_SCOPING" = rgb(117, 112, 179, alpha = 100, maxColorValue = 255),
+  "IN_DEVELOPMENT" = rgb(117, 112, 179, maxColorValue = 255),
+  "DONE_DEVELOPMENT" = rgb(217, 95, 2, alpha = 100, maxColorValue = 255),
+  "IN_TESTING" = rgb(217, 95, 2, maxColorValue = 255),
+  "DONE_TESTING" = rgb(27, 158, 119, alpha = 100, maxColorValue = 255),
+  "DEPLOYED" = rgb(27, 158, 119, maxColorValue = 255)
+)
+
+# fill missing values with zero
+df.daily.status <- df.daily.status %>%
+  complete(date, status, fill = list(nb = 0))
+```
+# A board to rule them all
+
+
+```{r few stats, echo=FALSE}
+df.by.day = df.daily.status %>%
+  group_by(date) %>%
+  summarise(n = sum(nb))
+nb_tickets = max(df.by.day$n)
+start_date = min(df.daily.status$date)
+end_date = max(df.daily.status$date)
+```
+
+
+```{r demo_data}
+df.demo = data.frame(
+  status = c(status_list, status_list),
+  date = c(rep("x", length(status_list)), rep("x + 1", length(status_list))),
+  n = c(c(5, 2, 3, 4, 3, 2, 1, 6), c(6, 1, 4, 2, 3, 4, 1, 7))
+) %>%
+  mutate(status = factor(status, levels = status_list))
+
+df.demo.push= data.frame(
+  status=c("IN_SCOPING", "IN_DEVELOPMENT", "IN_TESTING", "DEPLOYED"),
+  date=c(rep("x", 4)),
+  n=c(10, 7, 2, 7)
+) %>%
+  mutate(status = factor(status, levels = status_list))
+```
+```{r plot_board, echo=FALSE}
+plot_board = function(df.tickets, max_tickets) {
+  ggplot(df.tickets, aes(x = status, y = n, fill = status)) +
+    geom_col(width = 0.9) +
+    geom_hline(
+      yintercept = 0:max_tickets,
+      color = "white",
+      linewidth = 3
+    ) +
+    scale_y_reverse(expand = c(0, 0)) +
+    scale_x_discrete(position = "top", expand = expansion(mult = c(0.05, 0.2))) +
+    scale_fill_manual(values = status_colors, drop = FALSE) +
+    theme_minimal() +
+    labs(
+      title = "Status per day",
+      x = "",
+      y = ""
+    ) +
+    theme(
+      panel.grid = element_blank(),   # remove default grid so only your white lines remain
+      legend.position = "none",
+      axis.text.x = element_text(
+        size = 12,
+        face = "bold",
+        angle = 30,
+        hjust = 0,   # adjust horizontal alignment
+        vjust = 0    # adjust vertical alignment
+      ),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank()
+    )
+}
+```
+## The board
+
+A kanban board represents the status of work at a given moment in time.
+
+Tickets move from left to right.
+
+```{r plot_demo_push}
+plot_board(df.demo.push, max(df.demo.push$n))
+```
+
+## Kanban is pulling, not pushing!
+
+Greyed colors represent ticket in waiting stages
+
+```{r board_demo}
+df.demo = data.frame(
+  status = c(status_list, status_list),
+  date = c(rep("x", length(status_list)), rep("x + 1", length(status_list))),
+  n = c(c(5, 2, 3, 4, 3, 2, 1, 6), c(6, 1, 4, 2, 3, 4, 1, 7))
+) %>%
+  mutate(status = factor(status, levels = status_list))
+
+max_tickets = max(df.demo$n)
+
+
+plot_board(subset(df.demo, date == "x"), max_tickets)
+```
+
+## Day + 1 evolution
+
+The board evolved every day
+```{r demo_board_two_days}
+plot_board(df.demo, max_tickets) +
+  facet_wrap(~date, nrow = 1, strip.position = "bottom") +
+  labs(
+    y="nb tickets"
+  )+
+  theme(
+    strip.text.x = element_text(
+      size = 16,
+      face = "bold",
+    )
+  )
+```
+
+## Daily stacked
+
+We can also see a day as a stacked histogram (no ticket details).
+```{r demo_daily_stacked}
+
+plot_daily_stack = function(df.tickets) {
+  ggplot(df.tickets, aes(x = date, y = n, fill = status)) +
+    geom_col(width = 0.7) +
+    scale_fill_manual(values = status_colors) +
+    labs(
+      y="nb tickets"
+    ) +
+    theme_minimal(base_size = 22) +
+    theme(
+      panel.grid.major.x = element_blank(),
+      legend.position = "right",
+      legend.text = element_text(size=14)
+    )
+}
+plot_daily_stack(subset(df.demo, date == "x"))
+```
+
+
+## Stack evolution
+
+```{r demo_daily_stacked_two_days}
+plot_daily_stack(df.demo)
+```
+
+# Let's go wider
+
+## Larger simulation
+With `simulate_kanban.py` a ticket evolution was simulated with `r nb_tickets` tickets, starting on `r start_date` and ending on `r end_date`.
+
+WIP limit and velocity is changing over time due to hiring and other tuning factors.
+
+## Cumulative flow diagram
+
+```{r plot_cfd_function, echo = FALSE}
+plot_cfd = function(){
+  ggplot(
+  df.daily.status,
+  aes(x = date, y = nb, group = status, fill = status)
+) +
+  geom_area(position = "stack") +
+  scale_fill_manual(values = status_colors)  +
+  theme_minimal(base_size = 22) +
+  theme(
+    legend.text = element_text(size=14)
+  )+
+  labs(
+    title = "Cumulative Flow Diagram",
+    x = "time",
+    y = "nb tickets"
+  )
+}
+```
+
+```{r cfd_zoom}
+
+plot_cfd() +
+  coord_cartesian(xlim = c(as.Date("2026-01-31"), as.Date("2026-04-15")), ylim = c(0, 110)) +
+  annotate(
+    "segment",
+    x=as.Date("2026-01-31"),
+    xend=as.Date("2026-04-01"),
+    y=23,
+    yend=23,
+    lwd=1,
+    arrow = arrow(
+      length = unit(0.4, "cm"),
+      type = "closed",
+      ends = "both"
+    )
+  ) +
+  annotate(
+    "label",
+    x=as.Date("2026-02-20"),
+    y=27,
+    label="Lead time",
+    hjust=0.5,
+    vjust=0,
+    size=6,
+    padding = unit(0.5, "lines")
+  ) +
+  annotate(
+    "segment",
+    x=as.Date("2026-03-20"),
+    xend=as.Date("2026-03-20"),
+    y=16,
+    yend=70,
+    lwd=1,
+    arrow = arrow(
+      length = unit(0.4, "cm"),
+      type = "closed",
+      ends = "both"
+    )
+  ) +
+  annotate(
+    "label",
+    x=as.Date("2026-03-22"),
+    y=60,
+    hjust=0,
+    label="WIP\n(Work in Progress)",
+    size=6,
+    padding = unit(0.5, "lines")
+  )
+```
+
+## CFD: the full picture
+
+```{r plot_cfd_full}
+df.annotations = data.frame(
+  x= c(as.Date("2026-04-01"), as.Date("2026-07-01"), as.Date("2026-10-01")),
+  y = c(170, 260, 350),
+  text= c(
+     "Development team doubled\n(WIP limit increases to 6)",
+     "We enhance developers with AI\nvelocity is doubled",
+     "More automated testing in dev (time + 50%)\nTesting time divided by 2"
+   )
+)
+
+plot_cfd() +
+  geom_label(
+      data=df.annotations,
+      aes(x=x, y=y, label=text),
+      vjust = 0,
+      hjust = 0.5,
+      size = 3.5,
+      color = "black",
+      fill = "white",      # background color
+      label.size = 0.3,
+      label.padding = unit(0.5, "lines"),
+      inherit.aes = FALSE
+    ) +
+  geom_segment(
+      data=df.annotations,
+      aes(x=x, xend=x, y=y, yend=y-50 ),
+        arrow = arrow(length = unit(0.25, "cm")),
+        color = "black",
+        inherit.aes = FALSE
+
+   )
+
+```

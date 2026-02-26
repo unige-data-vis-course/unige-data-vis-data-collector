@@ -42,7 +42,7 @@ Parameters as the simulation duration, dynamic WIP etc. are set into the script.
 
 It output two files:
   - [kanban-daily-count-by-status.csv](out/kanban-daily-count-by-status.csv): for each day of the simultion, the number of tickets that falls in each status
-  - [kanban-ticket-status-transitions.csv](out/kanban-ticket-status-transitions.csv): For each ticket, the date of all status transitions.
+  - [kanban-ticket-status-transitions.csv](notebooks/kanban-ticket-status-transitions.csv): For each ticket, the date of all status transitions.
 
 
 ### City streets
