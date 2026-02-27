@@ -1,0 +1,39 @@
+---
+title: "City streets"
+output:
+  ioslides_presentation:
+    theme: flatly
+    widescreen: true
+author: "Alexandre Masselot"
+date: "2026-02-27"
+---
+```{r package_setup, echo = FALSE, message = FALSE, warning = FALSE}
+# https://chatgpt.com/c/699f73a9-eb58-8337-9f49-6b0525b21ff7
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+  # Interactive in RStudio: use the current editor document path
+  rmd_path <- rstudioapi::getActiveDocumentContext()$path
+} else {
+  # When knitting/rendering: knitr knows the input
+  rmd_path <- knitr::current_input(dir = TRUE)
+}
+if (!is.null(rmd_path) && nzchar(rmd_path)) {
+  knitr::opts_knit$set(root.dir = dirname(normalizePath(rmd_path)))
+  setwd(dirname(normalizePath(rmd_path)))
+}
+
+knitr::opts_chunk$set(
+  fig.width = 12,   # increase width
+  fig.height = 6,
+  out.width = "100%"   # VERY IMPORTANT
+)
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+
+```
+```{r loading_data}
+```
