@@ -32,8 +32,10 @@ knitr::opts_chunk$set(
 library(ggplot2)
 library(dplyr)
 library(tidyr)
+library(patchwork)
+
 ```
-```{r loading_data, echo = FALSE}
+```{r loading_data}
 df.daily.status = read.csv( "kanban-daily-by-status.csv")
 
 #convert $date to date
@@ -85,7 +87,7 @@ df.demo = data.frame(
 
 df.demo.push= data.frame(
   status=c("IN_SCOPING", "IN_DEVELOPMENT", "IN_TESTING", "DEPLOYED"),
-  date=c(rep("x", 4)),
+  date=rep("x", 4),
   n=c(10, 7, 2, 7)
 ) %>%
   mutate(status = factor(status, levels = status_list))
@@ -135,7 +137,7 @@ plot_board(df.demo.push, max(df.demo.push$n))
 
 ## Kanban is pulling, not pushing!
 
-Greyed colors represent ticket in waiting stages
+Greyed colors represent ticket in waiting stages.
 
 ```{r board_demo}
 df.demo = data.frame(
@@ -153,7 +155,7 @@ plot_board(subset(df.demo, date == "x"), max_tickets)
 
 ## Day + 1 evolution
 
-The board evolved every day
+The board evolves every day.
 ```{r demo_board_two_days}
 plot_board(df.demo, max_tickets) +
   facet_wrap(~date, nrow = 1, strip.position = "bottom") +
@@ -202,7 +204,7 @@ plot_daily_stack(df.demo)
 ## Larger simulation
 With `simulate_kanban.py` a ticket evolution was simulated with `r nb_tickets` tickets, starting on `r start_date` and ending on `r end_date`.
 
-WIP limit and velocity is changing over time due to hiring and other tuning factors.
+WIP limit and velocity are changing over time due to hiring and other tuning factors.
 
 ## Cumulative flow diagram
 
@@ -234,8 +236,8 @@ plot_cfd() +
     "segment",
     x=as.Date("2026-01-31"),
     xend=as.Date("2026-04-01"),
-    y=23,
-    yend=23,
+    y=24,
+    yend=24,
     lwd=1,
     arrow = arrow(
       length = unit(0.4, "cm"),
@@ -246,7 +248,7 @@ plot_cfd() +
   annotate(
     "label",
     x=as.Date("2026-02-20"),
-    y=27,
+    y=28,
     label="Lead time",
     hjust=0.5,
     vjust=0,
@@ -269,9 +271,35 @@ plot_cfd() +
   annotate(
     "label",
     x=as.Date("2026-03-22"),
-    y=60,
+    y=56,
     hjust=0,
     label="WIP\n(Work in Progress)",
+    size=6,
+    padding = unit(0.5, "lines")
+  ) +
+  annotate(
+    "segment",
+    x=as.Date("2026-03-25"),
+    xend=as.Date("2026-04-15"),
+    y=18,
+    yend=28,
+    lwd=1
+  ) +
+  annotate(
+    "segment",
+    x=as.Date("2026-03-25"),
+    xend=as.Date("2026-04-15"),
+    y=18,
+    yend=18,
+    lwd=1
+  ) +
+  annotate(
+    "label",
+    x=as.Date("2026-04-05"),
+    y=14,
+    hjust=0.5,
+    vjust=1,
+    label="angle = throughput",
     size=6,
     padding = unit(0.5, "lines")
   )
@@ -309,7 +337,118 @@ plot_cfd() +
         arrow = arrow(length = unit(0.25, "cm")),
         color = "black",
         inherit.aes = FALSE
-
    )
 
 ```
+
+# Throughput
+
+```{r data_status}
+df.ticket.status = read.csv( "kanban-ticket-status-transitions.csv")
+df.ticket.status = df.ticket.status %>%
+  mutate(across(-ticket_id, as.Date))
+
+df.deployed.per.day = df.ticket.status %>%
+  filter((DEPLOYED < max(DEPLOYED, na.rm = TRUE) - 45) & (DEPLOYED > min(DEPLOYED, na.rm = TRUE)  + 20)) %>%
+  count(DEPLOYED, name = "n") %>%
+  rename(date = DEPLOYED)
+```
+
+## Life is Noisy
+
+The number deployed tickets per week.
+
+
+```{r plot_deployed_per_day_bar_plot}
+ggplot(df.deployed.per.day, aes(x = date, y = n)) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Deployed tickets per week",
+    x = "date",
+    y = "nb tickets"
+  ) +
+  theme_minimal(base_size = 22)
+```
+
+## Averaging throughput
+
+```{r plot_deployed_per_day_line_plot}
+plot_throughput= function(){
+    ggplot(df.deployed.per.day, aes(x = date, y = n)) +
+      geom_point(size=2, alpha=0.5) +
+      geom_smooth(
+        method = "loess",
+        se = TRUE,
+        lwd=2
+      ) +
+      labs(
+        title = "Ticket throughput",
+        x = "Date",
+        y = "Deployed per week"
+      ) +
+      theme_minimal(base_size = 22)
+}
+plot_throughput()
+```
+
+# Lead/Cycle times
+
+```{r data_lead_time}
+df.ticket.status$lead_time = df.ticket.status$DEPLOYED - df.ticket.status$BACKLOG
+df.ticket.status$cycle_time = df.ticket.status$DEPLOYED - df.ticket.status$IN_DEVELOPMENT
+```
+
+## Lead time evolution
+
+Lead time: from backlog to deployment.
+
+```{r plot_lead_time_line_plot}
+plot_lead_time = function(){
+    ggplot(df.ticket.status, aes(x = BACKLOG, y = lead_time)) +
+      geom_point(size=2, alpha=0.5) +
+      geom_smooth(
+        method = "loess",
+        se = TRUE,
+        lwd=2
+      ) +
+      labs(
+        title = "Lead time evolution",
+        x = "Date",
+        y = "Lead time"
+      ) +
+      theme_minimal(base_size = 22)
+}
+plot_lead_time()
+```
+
+## Cycle time evolution
+
+Cycle time: from development taking over to deployment.
+
+```{r plot_cycle_time_line_plot}
+plot_cycle_time = function(){
+    ggplot(df.ticket.status, aes(x = IN_DEVELOPMENT, y = cycle_time)) +
+      geom_point(size=2, alpha=0.5) +
+      geom_smooth(
+        method = "loess",
+        se = TRUE,
+        lwd=2
+      ) +
+      labs(
+        title = "Cycle time evolution",
+        x = "Date",
+        y = "Cycle time"
+      ) +
+      theme_minimal(base_size = 22)
+}
+plot_cycle_time()
+```
+
+## Recap
+
+```{r recap}
+(plot_cfd() + theme_minimal(base_size = 14) | plot_throughput()  + theme_minimal(base_size = 14)) /
+  (plot_lead_time()  + theme_minimal(base_size = 14) | plot_cycle_time()  + theme_minimal(base_size = 14))
+```
+
+
