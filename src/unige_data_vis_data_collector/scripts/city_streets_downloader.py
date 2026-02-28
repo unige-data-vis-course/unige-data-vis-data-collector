@@ -11,8 +11,9 @@ from dotenv import load_dotenv
 from unige_data_vis_data_collector.city_streets.overpass_service import (
     OverpassCityStreetsService,
 )
+from unige_data_vis_data_collector.scripts import setup_logging
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

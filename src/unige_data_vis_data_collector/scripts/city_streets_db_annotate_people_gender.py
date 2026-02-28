@@ -8,6 +8,8 @@ from typing import Iterable, List, Protocol
 
 from dotenv import load_dotenv
 
+from unige_data_vis_data_collector.scripts import setup_logging
+
 try:
     from tqdm import tqdm  # type: ignore
 except Exception:  # pragma: no cover
@@ -18,7 +20,7 @@ from unige_data_vis_data_collector.city_streets.people_gender_inference_service 
     PeopleGenderInferenceService,
 )
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
 
 
 class _InferenceService(Protocol):

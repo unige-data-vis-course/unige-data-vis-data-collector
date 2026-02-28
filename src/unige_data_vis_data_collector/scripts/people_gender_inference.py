@@ -6,6 +6,9 @@ from typing import List
 from unige_data_vis_data_collector.city_streets.people_gender_inference_service import (
     PeopleGenderInferenceService,
 )
+from unige_data_vis_data_collector.scripts import setup_logging
+
+setup_logging()
 
 
 def parse_args(argv: List[str]) -> argparse.Namespace:

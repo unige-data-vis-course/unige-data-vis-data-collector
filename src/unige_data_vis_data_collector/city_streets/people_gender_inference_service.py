@@ -113,12 +113,24 @@ class PeopleGenderInferenceService:
         return json.dumps(schema, ensure_ascii=False)
 
     def _format_instructions_text(self) -> str:
-        return (
-            "You are a precise classifier. For each input street name, decide if it refers to a person. "
-            "If it does, set gender to one of: NEUTRAL, MALE, FEMALE. If not a person, set gender to null. "
-            "Output MUST be a JSON array of StreetPeopleGenderInferenceItem objects as defined by the Pydantic schema. "
-            "Maintain the same order as input and keep street_name exactly as given."
-        )
+        return """
+# Purpose
+You are a precise classifier. For each input street name, decide if it refers to a person.
+If it does, set gender to one of: NEUTRAL, MALE, FEMALE. If not a person, set gender to null.
+
+The context is mainly French-speaking cities.
+
+# Rules
+Use any information available to infer the gender in the most probable way
+  - Only attribute a gender when the street name refers to a person. Set to null otherwise. Do not base yourself on if it referes to a commmon name.
+  - Use first name when available. if the French first name can be used by male and female, do not choose based on that information
+  - If the name is a popular person (for example "rue Beethoven"), use global knowldge to infer the gender.
+  - If the street name refers to a gendered profession (example "rue du chirurgien Truc"), you can try to infer the gender based on the pronoun.
+
+# Output format
+Output MUST be a JSON array of StreetPeopleGenderInferenceItem objects as defined by the Pydantic schema.
+Maintain the same order as input and keep street_name exactly as given.
+"""
 
     def _invoke_llm(self, prompt: str) -> Any:
         try:

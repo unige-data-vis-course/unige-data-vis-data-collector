@@ -8,10 +8,11 @@ import sqlite3
 from pathlib import Path
 from typing import Iterable
 
-from unige_data_vis_data_collector.city_streets.way_segment import WaySegment
 from unige_data_vis_data_collector.city_streets.db_model import create_city_streets_db
+from unige_data_vis_data_collector.city_streets.way_segment import WaySegment
+from unige_data_vis_data_collector.scripts import setup_logging
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:

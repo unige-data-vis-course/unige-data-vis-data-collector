@@ -6,7 +6,7 @@ from pathlib import Path
 from tests.unige_data_vis_data_collector.gapminder.resources import RESOURCES_DIR
 from unige_data_vis_data_collector.scripts import gapminder_build_local as script
 
-DATA_DIR = RESOURCES_DIR /  Path("data/ddf--gapminder--fasttrack/")
+DATA_DIR = RESOURCES_DIR / Path("data/ddf--gapminder--fasttrack/")
 CONCEPTS_FILE_CANDIDATES = [
     DATA_DIR / "ddf--concepts.csv",
 ]

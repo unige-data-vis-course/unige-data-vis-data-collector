@@ -1,9 +1,10 @@
 ---
-title: "City streets"
+title: "Swiss City Streets: a Gender Bias?"
 output:
-  ioslides_presentation:
-    theme: flatly
-    widescreen: true
+    ioslides_presentation:
+        theme: flatly
+        widescreen: true
+css: city-streets.css
 author: "Alexandre Masselot"
 date: "2026-02-27"
 ---
@@ -26,14 +27,269 @@ if (!is.null(rmd_path) && nzchar(rmd_path)) {
 knitr::opts_chunk$set(
   fig.width = 12,   # increase width
   fig.height = 6,
-  out.width = "100%"   # VERY IMPORTANT
+  out.width = "100%",   # VERY IMPORTANT
+  fig.bg = "black",     # ensure the full device canvas is black
+  dev.args = list(bg = "black") # for devices that honor bg via dev.args
 )
 
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(patchwork)
-
+library(DBI)
+library(RSQLite)
 ```
 ```{r loading_data}
+
+
+# Path to the SQLite DB relative to this notebook
+db_path <- file.path("..", "databases", "city_streets.db")
+stopifnot(file.exists(db_path))
+
+con <- dbConnect(SQLite(), dbname = db_path)
+
+query <- "
+SELECT
+    st.name,
+    st.is_people_name,
+    st.gender_name,
+    seg.street_name,
+    seg.city,
+    seg.id AS id_segment,
+    p.lat,
+    p.lon
+FROM points AS p
+JOIN segments AS seg
+    ON p.id_segment = seg.id
+JOIN streets AS st
+    ON seg.street_name = st.name
+"
+# Connect, ensure disconnection at the end of the chunk
+con <- dbConnect(RSQLite::SQLite(), dbname = db_path)
+
+
+
+
+res <- dbSendQuery(con, query)
+df.street.points <- dbFetch(res)
+dbClearResult(res)
+dbDisconnect(con)
+
+
+gender_names <- c("FEMALE", "MALE", "NEUTRAL", "NOT_HUMAN")
+gender_colors <- c(
+  "FEMALE" = "#f4cae4",
+  "MALE" = rgb(93, 173, 226, maxColorValue = 255),
+  "NEUTRAL" = "#666666",
+  "NOT_HUMAN" = "#666666"
+)
 ```
+```{r data_distribution}
+gender_distribution <- df.street.points %>%
+  distinct(city, gender_name, street_name, is_people_name) %>%
+  mutate(gender_name = factor(gender_name, levels = gender_names)) %>%
+  filter(gender_name != "NOT_HUMAN") %>%
+  group_by(city, gender_name, is_people_name) %>%
+  arrange(desc(gender_name)) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(city) %>%
+  mutate(
+    city_total = sum(n, na.rm = TRUE),
+    pct = n / city_total
+  ) %>%
+  ungroup()
+
+is_people_distribution <- df.street.points %>%
+  distinct(city, is_people_name, street_name) %>%
+  group_by(city, is_people_name) %>%
+  mutate(is_people_name = ifelse(is_people_name == 0, FALSE, TRUE)) %>%
+  summarise(n = n(), .groups = "drop")
+
+nb_streets_per_city <- df.street.points %>%
+  distinct(city, street_name) %>%
+  group_by(city) %>%
+  summarise(n = n(), .groups = "drop")
+```
+
+# Counting
+
+## Steet count
+
+```{r plot_count_streets}
+black_bg_theme_barplot <- function() {
+  theme(
+    plot.background = element_rect(fill = "black", colour = NA),
+    panel.background = element_rect(fill = "black", colour = NA),
+    panel.grid = element_line(colour = "#333333"),
+    axis.text = element_text(color = "white"),
+    legend.text = element_text(color = "white"),
+    legend.title = element_text(color = "white"),
+    axis.title = element_text(color = "white"),
+    plot.title = element_text(color = "white", face = "bold")
+  )
+}
+
+nb_streets_per_city <- nb_streets_per_city %>% arrange(desc(n))
+
+ggplot(nb_streets_per_city, aes(x = n, y = reorder(city, n))) +
+  geom_col(fill = "white") +
+  labs(
+    title = "How Many Streets per City?",
+    x = "",
+    y = ""
+  ) +
+  theme_minimal(base_size = 24) +
+  black_bg_theme_barplot()
+```
+
+## Streets with people names
+```{r plot_count_people_nams}
+
+ggplot(is_people_distribution, aes(x = n, y = reorder(city, n))) +
+  geom_col(aes(fill = is_people_name)) +
+  scale_fill_manual(
+    name = "",
+    values = c("TRUE" = "white", "FALSE" = "lightgrey"),
+    breaks = c(TRUE, FALSE),
+    labels = c("Yes", "No"),
+    drop = FALSE
+  ) +
+  labs(
+    title = "How Many Streets with People Names?",
+    x = "",
+    y = ""
+  ) +
+  theme_minimal(base_size = 24) +
+  theme(
+    legend.position = c(0.98, 0.05),
+    legend.justification = c("right", "bottom")
+  ) +
+  black_bg_theme_barplot()
+
+```
+
+# So, is there a gender bias?
+
+## Streets Count by Gendered Names
+
+```{r plot_count_by_gender}
+
+ggplot(
+  gender_distribution,
+  aes(x = n, y = reorder(city, n), fill = gender_name)
+) +
+  geom_col(position = position_stack(reverse = TRUE)) +
+  labs(
+    title = "How Many Streets by gender names?",
+    x = "",
+    y = ""
+  ) +
+  scale_fill_manual(
+    name = "Gender",
+    values = gender_colors,
+    breaks = c("FEMALE", "MALE", "NEUTRAL"),
+    labels = c("Women", "Men", "Not attributed"),
+    drop = FALSE
+  ) +
+  theme_minimal(base_size = 24) +
+  black_bg_theme_barplot()
+
+```
+
+## Streets Proportion by Gendered Names
+
+```{r plot_proportion_by_gender}
+
+ggplot(
+  gender_distribution,
+  aes(x = pct * 100, y = reorder(city, n), fill = gender_name)
+) +
+  geom_col(position = position_stack(reverse = TRUE)) +
+  labs(
+    title = "How Many Streets by gender names?",
+    x = "",
+    y = ""
+  ) +
+  scale_fill_manual(
+    name = "Gender",
+    values = gender_colors,
+    breaks = c("FEMALE", "MALE", "NEUTRAL"),
+    labels = c("Women", "Men", "Not attributed"),
+    drop = FALSE
+  ) +
+  geom_text(
+    data = subset(gender_distribution, gender_name == "FEMALE"),
+    aes(x = pct*100+5, label = paste(round(pct*100), "%", sep="")),
+    hjust = 0,
+    color = "white",
+    size = 8
+  ) +
+  scale_x_continuous(labels = function(x) paste0(x, "%")) +
+  theme_minimal(base_size = 24) +
+  black_bg_theme_barplot()
+
+```
+
+```{r prepare_data}
+df.street.points$gender_name[is.na(df.street.points$gender_name)] <- "NOT_HUMAN"
+df.street.points$gender_name <- factor(df.street.points$gender_name, levels <- gender_names)
+df.street.points <- df.street.points %>%
+  arrange(city) %>%
+  arrange(desc(gender_name))
+
+```
+
+# Mapping
+
+```{r plot_city_function}
+
+plot_city_streets <- function(city_name) {
+  df.city.street.points = subset(df.street.points, city == city_name)
+
+  ggplot(
+    df.city.street.points,
+    aes(
+      lon,
+      lat,
+      group = id_segment,
+      colour = gender_name
+    )
+  ) +
+    geom_path(
+      aes(linewidth = ifelse(gender_name %in% c("MALE", "FEMALE"), 1, 0.5))
+    ) +
+    scale_linewidth_identity() +
+    scale_color_manual(
+      name = "Gender",
+      values = gender_colors,
+      breaks = c("FEMALE", "MALE", "NOT_HUMAN"),
+      labels = c("Women", "Men", "Others"),
+      drop = FALSE
+    ) +
+    guides(
+      colour = guide_legend(override.aes = list(linewidth = 3))
+    ) +
+    coord_quickmap() +
+    theme_void(base_size = 22) +
+    theme(
+      plot.background = element_rect(fill = "black", colour = NA),
+      panel.background = element_rect(fill = "black", colour = NA),
+      legend.background = element_rect(fill = "black", colour = NA),
+      legend.key = element_rect(fill = "black", colour = NA),
+      plot.title = element_text(color = "white"),
+      legend.title = element_text(color = "white"),
+      legend.text = element_text(color = "white"),
+    )
+}
+```
+
+```{r plot_all_cities, results='asis'}
+cities <- unique(df.street.points$city)
+
+for (city in cities) {
+  cat("\n\n##", city, "\n\n")
+  print(plot_city_streets(city))
+  cat("\n\n")
+}
+```
+

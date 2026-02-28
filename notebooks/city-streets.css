@@ -1,0 +1,77 @@
+/* ioslides dark theme override for black background and light text */
+
+:root {
+  --bg: #000000;
+  --panel: #000000;
+  --text: #e6e6e6;
+  --muted: #b3b3b3;
+  --border: #333333;
+  --link: #66b2ff;
+  --link-visited: #b388ff;
+  --accent: #ffffff;
+}
+
+html, body {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+/* Each slide (ioslides uses .slides > article) */
+.slides > article {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+}
+/* Each slide (ioslides uses .slides > slide) */
+slides > slide {
+  background: var(--bg) !important;
+    background-color: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--accent) !important;
+}
+
+/* Links */
+a, a:link { color: var(--link) !important; }
+a:visited { color: var(--link-visited) !important; }
+a:hover, a:focus { filter: brightness(1.2); }
+
+/* Lists */
+ul, ol { color: var(--text) !important; }
+li { color: inherit !important; }
+
+/* Tables */
+table { color: var(--text) !important; border-color: var(--border) !important; }
+th, td { border-color: var(--border) !important; }
+thead th { color: var(--accent) !important; }
+
+/* Code blocks */
+code, pre {
+  background: #111111 !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* Blockquotes */
+blockquote {
+  color: var(--muted) !important;
+  border-left: 4px solid var(--border) !important;
+}
+
+/* Title slide */
+.title-slide, .title-slide hgroup {
+  background: var(--bg) !important;
+}
+.title-slide hgroup h1, .title-slide hgroup h2, .title-slide hgroup h3 {
+  color: var(--accent) !important;
+}
+
+/* Captions and small notes */
+.caption, .footnote, .notes, .remark-slide-number {
+  color: var(--muted) !important;
+}
+
+/* Images and figures should not get inverted colors; keep default */
+figure, img { background: transparent !important; }
