@@ -14,10 +14,10 @@ class OverpassCityStreetsService:
     def load_city_ids(self, city_name):
         query = f"""
 [out:json][timeout:1000];
-area["name"="{city_name}"]["boundary"="administrative"]->.a;
-(
-  way(area.a)["highway"]["name"];
-);
+relation["name"="{city_name}"]["admin_level"="8"];
+map_to_area -> .ville_cible;
+
+way["highway"]["name"](area.ville_cible);
 out ids;
 """
         elements = self._fetch_batch(query)

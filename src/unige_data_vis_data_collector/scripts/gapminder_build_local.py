@@ -6,8 +6,10 @@ import sys
 from pathlib import Path
 
 from unige_data_vis_data_collector.gapminder import GapminderImporter
+from unige_data_vis_data_collector.scripts import setup_logging
 
 DEFAULT_SOURCE = Path("data/ddf--gapminder--fasttrack/")
+setup_logging()
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

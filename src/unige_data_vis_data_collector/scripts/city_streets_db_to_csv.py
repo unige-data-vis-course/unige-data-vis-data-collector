@@ -7,8 +7,9 @@ import sqlite3
 from pathlib import Path
 from typing import Iterable
 
+from unige_data_vis_data_collector.scripts import setup_logging
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

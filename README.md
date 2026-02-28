@@ -48,6 +48,20 @@ It output two files:
 ### City streets
 The goal is to load city streets data from overpass-turbo API. The shall be saved in a sqlite database and annotated with the gender information if the street name is designing people.
 
+#### Download data from overpass-turbo API into out/*.jsonl file
+
+    `PYTHONPATH=src python src/unige_data_vis_data_collector/scripts/city_streets_downloader.py Lausanne,Genève,Neuchâtel,Fribourg,Sion,Nyon,Martigny`
+
+#### Load *.jsonl into sqlite database
+
+    `PYTHONPATH=src python  src/unige_data_vis_data_collector/scripts/city_streets_db_loader.py`
+
+#### Annotate the streets table with is_human/ gender information based on the street name
+
+**NB** you need Azure LLM API credentials
+
+    `PYTHONPATH=src python  src/unige_data_vis_data_collector/scripts/city_streets_db_annotate_people_gender.py`
+
 #### Export DB to csv files
 
 To import into Tableau Public. the Sqlite database must be exported to csv files.
