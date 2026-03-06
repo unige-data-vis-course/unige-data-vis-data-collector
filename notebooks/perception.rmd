@@ -1,0 +1,206 @@
+---
+title: "Perception"
+output: ioslides_presentation
+---
+
+# How we perceive visual values
+
+## Length, same base
+```{r package_setup, echo = FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(
+  fig.width = 12,   # increase width
+  fig.height = 8,
+  out.width = "100%"   # VERY IMPORTANT
+)
+
+library(ggplot2)
+```
+```{r length_same_base}
+dt.1 <- data.frame(
+  name = c('A', 'B', 'C', 'D', 'E', 'F'),
+  value = c(95, 50, 100, 120, 70, 25),
+  f = c(FALSE, FALSE, TRUE, FALSE, FALSE, FALSE)
+)
+ggplot(
+  dt.1,
+  aes(x = name, y = value, fill = f)
+) +
+  geom_bar(
+    stat = 'identity',
+    width = 0.7
+  ) +
+  scale_fill_manual(values = c('#1b9e77', '#d95f02')) +
+  guides(fill = "none") +
+  theme_minimal(base_size = 22) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line = element_line(),
+    axis.ticks = element_line()
+  ) +
+  labs(
+    title = "",
+    x = "",
+    y = ""
+  )
+
+```
+
+## Length, different base
+
+```{r length_diff_base}
+dt.2 <- data.frame(
+  name = c('A', 'A', 'B', 'B', 'C', 'C', 'D', 'D', 'E', 'E'),
+  value = c(10, 40, 90, 105, 40, 100, 20, 75, 130, 45),
+  f = c('hide', 'show_blue', 'hide', 'show_blue', 'hide', 'show_red', 'hide', 'show_blue', 'hide', 'show_blue')
+)
+dt.2$f = factor(dt.2$f, levels = c('show_red', 'show_blue', 'hide'))
+
+ggplot(
+  dt.2,
+  aes(x = name, y = value, fill = f)
+) +
+  geom_bar(
+    stat = 'identity',
+    width = 0.7
+  ) +
+  scale_fill_manual(values = c('#d95f02', '#1b9e77', '#e0e0e0')) +
+  guides(fill = "none") +
+  theme_minimal(base_size = 22) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line = element_line(),
+    axis.ticks = element_line()
+  ) +
+  labs(
+    title = "",
+    x = "",
+    y = ""
+  )
+
+```
+
+## Meat Map - Colour Hue Scale
+
+```{r heat_map_hue}
+nb_hm <- 12
+set.seed(123)
+# matrix -> dataframe (wide)
+
+# long format for ggplot
+dt.hm <- data.frame(
+  x = rep(seq_len(nb_hm), times = nb_hm),
+  y = rep(LETTERS[1:nb_hm], each = nb_hm),
+  value = sample(0:200, nb_hm * nb_hm, replace = TRUE)
+)
+plot_heat_map <- function(df) {
+  ggplot(df, aes(x = x, y = y, fill = value)) +
+    geom_tile() +
+    coord_equal() +
+    theme_minimal(base_size = 22) +
+    theme(panel.grid = element_blank()) +
+    scale_x_continuous(
+      breaks = seq(1, nb_hm, by = 1)
+    ) +
+    labs(
+      title = "",
+      x = "",
+      y = ""
+    )
+}
+
+plot_heat_map(dt.hm) +
+  scale_fill_viridis_c(
+    option = "H",
+    limits = c(0, 200),
+    guide = guide_colourbar(
+      barheight = grid::unit(9, "cm"),
+      barwidth = grid::unit(1, "cm")
+    ),
+    name = NULL
+  )
+```
+
+## Colour Intensity Scale
+
+```{r heat_map_intensity}
+
+plot_heat_map(dt.hm) +
+  scale_fill_gradient(
+    low = "white",
+    high = "blue",
+    limits = c(0, 200),
+    guide = guide_colourbar(
+      barheight = grid::unit(9, "cm"),
+      barwidth = grid::unit(1, "cm")
+    ),
+    name = NULL
+  )
+```
+
+## Colour Scale - Continuous
+
+```{r heat_map_continuous_YlGnBu}
+
+plot_heat_map(dt.hm) +
+  scale_fill_gradientn(
+    colours = scales::brewer_pal(palette = "YlGnBu")(9),  # 9 anchor colours
+    limits = c(0, 200),
+    guide = guide_colourbar(
+      barheight = grid::unit(9, "cm"),
+      barwidth = grid::unit(1, "cm")
+    ),
+    name = NULL
+  )
+```
+
+
+```{r plot_discrete_colours}
+plot_discrete_colours <- function(dt, nb_d) {
+  df.hmd <- dt
+
+  df.hmd$value_orig <- df.hmd$value
+  level_values <- paste("[", floor(seq(0, nb_d - 1) * 200 / nb_d), ",", floor(seq(1, nb_d) * 200 / nb_d), " [", sep = "")
+  df.hmd$value <- factor(level_values[floor(dt.hm$value * nb_d / 200) + 1], levels = level_values)
+
+  ggplot(df.hmd, aes(x = x, y = y, fill = value)) +
+    geom_tile() +
+    coord_equal() +
+    theme_minimal(base_size = 22) +
+    theme(panel.grid = element_blank()) +
+    scale_x_continuous(
+      breaks = seq(1, nb_hm, by = 1)
+    ) +
+    labs(
+      title = "",
+      x = "",
+      y = ""
+    ) +
+    scale_fill_manual(
+      values = scales::brewer_pal(palette = "YlGnBu")(nb_d),
+      name = NULL,
+    ) +
+    guides(fill = guide_legend(reverse = TRUE)) +
+    theme(
+      legend.key.height = grid::unit(2, "cm"),
+      legend.key.width = grid::unit(10, "mm")
+    )
+}
+```
+
+
+## Colour Map - Discrete (8 levels)
+
+```{r heat_map_discrete_8}
+plot_discrete_colours(dt.hm, 8)
+
+```
+
+## Colour Map - Discrete (5 levels)
+
+```{r heat_map_discrete_5}
+plot_discrete_colours(dt.hm, 5)
+
+```

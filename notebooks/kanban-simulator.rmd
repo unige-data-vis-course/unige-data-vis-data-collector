@@ -1,11 +1,11 @@
 ---
-title: "Kanban simulation metrics"
+title: "Kanban Simulation Metrics"
 output:
   ioslides_presentation:
     theme: flatly
     widescreen: true
 author: "Alexandre Masselot"
-date: "2019-01-01"
+date: "2027-02-18"
 ---
 ```{r package_setup, echo = FALSE, message = FALSE, warning = FALSE}
 # https://chatgpt.com/c/699f73a9-eb58-8337-9f49-6b0525b21ff7
@@ -36,7 +36,7 @@ library(patchwork)
 
 ```
 ```{r loading_data}
-df.daily.status = read.csv( "kanban-daily-by-status.csv")
+df.daily.status = read.csv("kanban-daily-by-status.csv")
 
 #convert $date to date
 df.daily.status$date = as.Date(df.daily.status$date)
@@ -85,10 +85,10 @@ df.demo = data.frame(
 ) %>%
   mutate(status = factor(status, levels = status_list))
 
-df.demo.push= data.frame(
-  status=c("IN_SCOPING", "IN_DEVELOPMENT", "IN_TESTING", "DEPLOYED"),
-  date=rep("x", 4),
-  n=c(10, 7, 2, 7)
+df.demo.push = data.frame(
+  status = c("IN_SCOPING", "IN_DEVELOPMENT", "IN_TESTING", "DEPLOYED"),
+  date = rep("x", 4),
+  n = c(10, 7, 2, 7)
 ) %>%
   mutate(status = factor(status, levels = status_list))
 ```
@@ -160,8 +160,8 @@ The board evolves every day.
 plot_board(df.demo, max_tickets) +
   facet_wrap(~date, nrow = 1, strip.position = "bottom") +
   labs(
-    y="nb tickets"
-  )+
+    y = "nb tickets"
+  ) +
   theme(
     strip.text.x = element_text(
       size = 16,
@@ -175,18 +175,18 @@ plot_board(df.demo, max_tickets) +
 We can also see a day as a stacked histogram (no ticket details).
 ```{r demo_daily_stacked}
 
-plot_daily_stack = function(df.tickets) {
+plot_daily_stack <- function(df.tickets) {
   ggplot(df.tickets, aes(x = date, y = n, fill = status)) +
     geom_col(width = 0.7) +
     scale_fill_manual(values = status_colors) +
     labs(
-      y="nb tickets"
+      y = "nb tickets"
     ) +
     theme_minimal(base_size = 22) +
     theme(
       panel.grid.major.x = element_blank(),
       legend.position = "right",
-      legend.text = element_text(size=14)
+      legend.text = element_text(size = 14)
     )
 }
 plot_daily_stack(subset(df.demo, date == "x"))
@@ -209,22 +209,31 @@ WIP limit and velocity are changing over time due to hiring and other tuning fac
 ## Cumulative flow diagram
 
 ```{r plot_cfd_function, echo = FALSE}
-plot_cfd = function(){
-  ggplot(
-  df.daily.status,
-  aes(x = date, y = nb, group = status, fill = status)
-) +
-  geom_area(position = "stack") +
-  scale_fill_manual(values = status_colors)  +
-  theme_minimal(base_size = 22) +
-  theme(
-    legend.text = element_text(size=14)
-  )+
-  labs(
-    title = "Cumulative Flow Diagram",
-    x = "time",
-    y = "nb tickets"
+kanban_guide_axis_x <- function() {
+  list(
+    coord_cartesian(xlim = c(start_date, end_date)),
+    scale_x_date(date_labels = "%y/%m")
   )
+}
+
+plot_cfd = function() {
+  p = ggplot(
+    df.daily.status,
+    aes(x = date, y = nb, group = status, fill = status)
+  ) +
+    geom_area(position = "stack") +
+    kanban_guide_axis_x() +
+    scale_fill_manual(values = status_colors) +
+    theme_minimal(base_size = 22) +
+    theme(
+      legend.text = element_text(size = 14)
+    ) +
+    labs(
+      title = "Cumulative Flow Diagram",
+      x = "time",
+      y = "nb tickets"
+    )
+  p
 }
 ```
 
@@ -234,11 +243,11 @@ plot_cfd() +
   coord_cartesian(xlim = c(as.Date("2026-01-31"), as.Date("2026-04-15")), ylim = c(0, 110)) +
   annotate(
     "segment",
-    x=as.Date("2026-01-31"),
-    xend=as.Date("2026-04-01"),
-    y=24,
-    yend=24,
-    lwd=1,
+    x = as.Date("2026-01-31"),
+    xend = as.Date("2026-04-01"),
+    y = 24,
+    yend = 24,
+    lwd = 1,
     arrow = arrow(
       length = unit(0.4, "cm"),
       type = "closed",
@@ -247,21 +256,21 @@ plot_cfd() +
   ) +
   annotate(
     "label",
-    x=as.Date("2026-02-20"),
-    y=28,
-    label="Lead time",
-    hjust=0.5,
-    vjust=0,
-    size=6,
+    x = as.Date("2026-02-20"),
+    y = 28,
+    label = "Lead time",
+    hjust = 0.5,
+    vjust = 0,
+    size = 6,
     padding = unit(0.5, "lines")
   ) +
   annotate(
     "segment",
-    x=as.Date("2026-03-20"),
-    xend=as.Date("2026-03-20"),
-    y=16,
-    yend=70,
-    lwd=1,
+    x = as.Date("2026-03-20"),
+    xend = as.Date("2026-03-20"),
+    y = 16,
+    yend = 70,
+    lwd = 1,
     arrow = arrow(
       length = unit(0.4, "cm"),
       type = "closed",
@@ -270,37 +279,37 @@ plot_cfd() +
   ) +
   annotate(
     "label",
-    x=as.Date("2026-03-22"),
-    y=56,
-    hjust=0,
-    label="WIP\n(Work in Progress)",
-    size=6,
+    x = as.Date("2026-03-22"),
+    y = 56,
+    hjust = 0,
+    label = "WIP\n(Work in Progress)",
+    size = 6,
     padding = unit(0.5, "lines")
   ) +
   annotate(
     "segment",
-    x=as.Date("2026-03-25"),
-    xend=as.Date("2026-04-15"),
-    y=18,
-    yend=28,
-    lwd=1
+    x = as.Date("2026-03-25"),
+    xend = as.Date("2026-04-15"),
+    y = 18,
+    yend = 28,
+    lwd = 1
   ) +
   annotate(
     "segment",
-    x=as.Date("2026-03-25"),
-    xend=as.Date("2026-04-15"),
-    y=18,
-    yend=18,
-    lwd=1
+    x = as.Date("2026-03-25"),
+    xend = as.Date("2026-04-15"),
+    y = 18,
+    yend = 18,
+    lwd = 1
   ) +
   annotate(
     "label",
-    x=as.Date("2026-04-05"),
-    y=14,
-    hjust=0.5,
-    vjust=1,
-    label="angle = throughput",
-    size=6,
+    x = as.Date("2026-04-05"),
+    y = 14,
+    hjust = 0.5,
+    vjust = 1,
+    label = "angle = throughput",
+    size = 6,
     padding = unit(0.5, "lines")
   )
 ```
@@ -309,85 +318,107 @@ plot_cfd() +
 
 ```{r plot_cfd_full}
 df.annotations = data.frame(
-  x= c(as.Date("2026-04-01"), as.Date("2026-07-01"), as.Date("2026-10-01")),
+  x = c(as.Date("2026-04-01"), as.Date("2026-07-01"), as.Date("2026-10-01")),
   y = c(170, 260, 350),
-  text= c(
-     "Development team doubled\n(WIP limit increases to 6)",
-     "We enhance developers with AI\nvelocity is doubled",
-     "More automated testing in dev (time + 50%)\nTesting time divided by 2"
-   )
+  text = c(
+    "Development team doubled\n(WIP limit increases to 6)",
+    "We enhance developers with AI\nvelocity is doubled",
+    "More automated testing in dev (time + 50%)\nTesting time divided by 2"
+  )
 )
 
 plot_cfd() +
   geom_label(
-      data=df.annotations,
-      aes(x=x, y=y, label=text),
-      vjust = 0,
-      hjust = 0.5,
-      size = 3.5,
-      color = "black",
-      fill = "white",      # background color
-      label.size = 0.3,
-      label.padding = unit(0.5, "lines"),
-      inherit.aes = FALSE
-    ) +
+    data = df.annotations,
+    aes(x = x, y = y, label = text),
+    vjust = 0,
+    hjust = 0.5,
+    size = 3.5,
+    color = "black",
+    fill = "white",      # background color
+    label.size = 0.3,
+    label.padding = unit(0.5, "lines"),
+    inherit.aes = FALSE
+  ) +
   geom_segment(
-      data=df.annotations,
-      aes(x=x, xend=x, y=y, yend=y-50 ),
-        arrow = arrow(length = unit(0.25, "cm")),
-        color = "black",
-        inherit.aes = FALSE
-   )
+    data = df.annotations,
+    aes(x = x, xend = x, y = y, yend = y - 50),
+    arrow = arrow(length = unit(0.25, "cm")),
+    color = "black",
+    inherit.aes = FALSE
+  )
 
 ```
 
 # Throughput
 
 ```{r data_status}
-df.ticket.status = read.csv( "kanban-ticket-status-transitions.csv")
+df.ticket.status = read.csv("kanban-ticket-status-transitions.csv")
 df.ticket.status = df.ticket.status %>%
   mutate(across(-ticket_id, as.Date))
 
 df.deployed.per.day = df.ticket.status %>%
-  filter((DEPLOYED < max(DEPLOYED, na.rm = TRUE) - 45) & (DEPLOYED > min(DEPLOYED, na.rm = TRUE)  + 20)) %>%
+  filter((DEPLOYED < max(DEPLOYED, na.rm = TRUE) - 45) & (DEPLOYED > min(DEPLOYED, na.rm = TRUE) + 20)) %>%
   count(DEPLOYED, name = "n") %>%
   rename(date = DEPLOYED)
 ```
 
 ## Life is Noisy
 
-The number deployed tickets per week.
-
 
 ```{r plot_deployed_per_day_bar_plot}
-ggplot(df.deployed.per.day, aes(x = date, y = n)) +
+ggplot(
+  data = df.deployed.per.day,
+  mapping = aes(x = date, y = n)
+) +
   geom_bar(stat = "identity") +
-  labs(
-    title = "Deployed tickets per week",
-    x = "date",
-    y = "nb tickets"
+  coord_cartesian(
+    xlim = c(start_date, end_date),
+    ylim = c(0, max(df.deployed.per.day$n))
   ) +
-  theme_minimal(base_size = 22)
+  scale_x_date(date_labels = "%y/%m") +
+  labs(
+    title = "Ticket throughput",
+    x = "date (deployment)",
+    y = "deployed / week"
+  ) +
+  theme_minimal(base_size = 22) +
+  kanban_guide_axis_x()
 ```
 
 ## Averaging throughput
 
-```{r plot_deployed_per_day_line_plot}
-plot_throughput= function(){
-    ggplot(df.deployed.per.day, aes(x = date, y = n)) +
-      geom_point(size=2, alpha=0.5) +
-      geom_smooth(
-        method = "loess",
-        se = TRUE,
-        lwd=2
-      ) +
-      labs(
-        title = "Ticket throughput",
-        x = "Date",
-        y = "Deployed per week"
-      ) +
-      theme_minimal(base_size = 22)
+```{r plot_deployed_per_day_points}
+plot_throughput = function(hide_loess = FALSE) {
+  p = ggplot(df.deployed.per.day, aes(x = date, y = n)) +
+    geom_point(size = 2, alpha = 0.5)
+  if (!hide_loess) {
+    p <- p + geom_smooth(
+      method = "loess",
+      se = TRUE,
+      lwd = 2
+    )
+  }
+  p +
+  coord_cartesian(
+    xlim = c(start_date, end_date),
+    ylim = c(0, max(df.deployed.per.day$n))
+  ) +
+  scale_x_date(date_labels = "%y/%m") +
+    labs(
+      title = "Ticket throughput",
+      x = "date (deployment)",
+      y = "deployed / week"
+    ) +
+    theme_minimal(base_size = 22)
 }
+plot_throughput(hide_loess = TRUE)
+```
+
+
+## Averaging throughput
+
+```{r plot_deployed_per_day_loess}
 plot_throughput()
 ```
 
@@ -403,20 +434,21 @@ df.ticket.status$cycle_time = df.ticket.status$DEPLOYED - df.ticket.status$IN_DE
 Lead time: from backlog to deployment.
 
 ```{r plot_lead_time_line_plot}
-plot_lead_time = function(){
-    ggplot(df.ticket.status, aes(x = BACKLOG, y = lead_time)) +
-      geom_point(size=2, alpha=0.5) +
-      geom_smooth(
-        method = "loess",
-        se = TRUE,
-        lwd=2
-      ) +
-      labs(
-        title = "Lead time evolution",
-        x = "Date",
-        y = "Lead time"
-      ) +
-      theme_minimal(base_size = 22)
+plot_lead_time = function() {
+  ggplot(df.ticket.status, aes(x = BACKLOG, y = lead_time)) +
+    geom_point(size = 2, alpha = 0.5) +
+    geom_smooth(
+      method = "loess",
+      se = TRUE,
+      lwd = 2
+    ) +
+    kanban_guide_axis_x() +
+    labs(
+      title = "Lead time evolution",
+      x = "date (in backlog)",
+      y = "nb days"
+    ) +
+    theme_minimal(base_size = 22)
 }
 plot_lead_time()
 ```
@@ -426,20 +458,21 @@ plot_lead_time()
 Cycle time: from development taking over to deployment.
 
 ```{r plot_cycle_time_line_plot}
-plot_cycle_time = function(){
-    ggplot(df.ticket.status, aes(x = IN_DEVELOPMENT, y = cycle_time)) +
-      geom_point(size=2, alpha=0.5) +
-      geom_smooth(
-        method = "loess",
-        se = TRUE,
-        lwd=2
-      ) +
-      labs(
-        title = "Cycle time evolution",
-        x = "Date",
-        y = "Cycle time"
-      ) +
-      theme_minimal(base_size = 22)
+plot_cycle_time = function() {
+  ggplot(df.ticket.status, aes(x = IN_DEVELOPMENT, y = cycle_time)) +
+    geom_point(size = 2, alpha = 0.5) +
+    geom_smooth(
+      method = "loess",
+      se = TRUE,
+      lwd = 2
+    ) +
+    kanban_guide_axis_x() +
+    labs(
+      title = "Cycle time evolution",
+      x = "date (in dev)",
+      y = "nb days"
+    ) +
+    theme_minimal(base_size = 22)
 }
 plot_cycle_time()
 ```
@@ -447,8 +480,10 @@ plot_cycle_time()
 ## Recap
 
 ```{r recap}
-(plot_cfd() + theme_minimal(base_size = 14) | plot_throughput()  + theme_minimal(base_size = 14)) /
-  (plot_lead_time()  + theme_minimal(base_size = 14) | plot_cycle_time()  + theme_minimal(base_size = 14))
+(plot_cfd() +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none") | plot_throughput() + theme_minimal(base_size = 14)) /
+  (plot_lead_time() + theme_minimal(base_size = 14) | plot_cycle_time() + theme_minimal(base_size = 14))
 ```
 
 
