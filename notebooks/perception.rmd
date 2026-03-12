@@ -19,10 +19,10 @@ library(ggplot2)
 ```{r length_same_base}
 dt.1 <- data.frame(
   name = c('A', 'B', 'C', 'D', 'E', 'F'),
-  value = c(95, 50, 100, 120, 70, 25),
+  value = c(95, 53, 100, 123, 68, 26),
   f = c(FALSE, FALSE, TRUE, FALSE, FALSE, FALSE)
 )
-ggplot(
+p_bar_same_base = ggplot(
   dt.1,
   aes(x = name, y = value, fill = f)
 ) +
@@ -31,6 +31,7 @@ ggplot(
     width = 0.7
   ) +
   scale_fill_manual(values = c('#1b9e77', '#d95f02')) +
+  scale_y_continuous(breaks = 100) +
   guides(fill = "none") +
   theme_minimal(base_size = 22) +
   theme(
@@ -44,8 +45,38 @@ ggplot(
     x = "",
     y = ""
   )
+p_bar_same_base
+```
+## Length, same base - solution
+
+```{r length_same_base_solution}
+p_bar_same_base +
+    geom_label(
+      aes(
+        label=value
+      ),
+      size=12,
+      fill="transparent",
+      colour="white",
+      nudge_y =-5,
+      label.size = 0
+    )
+```
+
+## Bar chart with horizontal grid
+
+```{r length_same_base_horiz_grid}
+p_bar_same_base +
+  scale_y_continuous() +
+  theme(
+    panel.grid.major.y = element_line(),
+    panel.grid.minor = element_blank(),
+    axis.line = element_line(),
+    axis.ticks = element_line()
+  )
 
 ```
+
 
 ## Length, different base
 
@@ -57,7 +88,7 @@ dt.2 <- data.frame(
 )
 dt.2$f = factor(dt.2$f, levels = c('show_red', 'show_blue', 'hide'))
 
-ggplot(
+p_bar_different_base = ggplot(
   dt.2,
   aes(x = name, y = value, fill = f)
 ) +
@@ -80,6 +111,7 @@ ggplot(
     y = ""
   )
 
+p_bar_different_base
 ```
 
 ## Meat Map - Colour Hue Scale

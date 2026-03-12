@@ -1,0 +1,330 @@
+---
+title: "NPS study"
+output: ioslides_presentation
+author: "Alexandre Masselot"
+date: "2026-03-06"
+---
+
+# NPS
+NPS = (promoters-detractors)/total*100
+
+```{r package_setup, echo = FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+  # Interactive in RStudio: use the current editor document path
+  rmd_path <- rstudioapi::getActiveDocumentContext()$path
+} else {
+  # When knitting/rendering: knitr knows the input
+  rmd_path <- knitr::current_input(dir = TRUE)
+}
+if (!is.null(rmd_path) && nzchar(rmd_path)) {
+  knitr::opts_knit$set(root.dir = dirname(normalizePath(rmd_path)))
+  setwd(dirname(normalizePath(rmd_path)))
+}
+
+knitr::opts_chunk$set(
+  fig.width = 12,   # increase width
+  fig.height = 6,
+  out.width = "100%"   # VERY IMPORTANT
+)
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(patchwork)
+
+```
+
+```{r random_data}
+
+nb_samples = 9
+
+draw_grades <- function(cfg) {
+  # p_binomial = (mean - 1) / (max_grade - 1)
+  if (is.null(cfg$p_binomial)) {
+    cfg$p_binomial = score_target_to_binom_prob(cfg)
+  }
+
+  data.frame(
+    user_id = sort(rep(seq(to = cfg$nb_people), times = cfg$nb_questions)),
+    question_id = rep(rep(seq(to = cfg$nb_questions), times = cfg$nb_people)),
+    grade = 1 + rbinom(n = cfg$nb_people * cfg$nb_questions, size = cfg$max_grade - 1, prob = cfg$p_binomial)
+  )
+}
+
+compute_score <- function(xs, cfg) {
+  if (cfg$mode == "NPS") {
+    (sum(xs >= cfg$promoter_ge) - sum(xs <= cfg$detractor_le)) / length(xs) * 100
+  }else if (cfg$mode == "AVERAGE") {
+    sum(xs) / length(xs) / cfg$max_grade * 100
+  }else {
+    stop(paste("compute_score: mode", cfg$mode, "unknown"))
+  }
+}
+
+score_target_to_binom_prob <- function(cfg) {
+  if (cfg$mode == "AVERAGE") {
+    return((cfg$score_target / 100 - 1 / cfg$max_grade) / (1 - 1 / cfg$max_grade))
+  }
+
+  p_max = 1
+  p_min = 0
+  eps = 0.01
+  i = 0
+  while (p_max > p_min + eps & i < 10) {
+    p_mean = (p_max + p_min) / 2
+    p_promoter = 1 - pbinom(cfg$promoter_ge - 2, cfg$max_grade - 1, p_mean)
+    p_detractor = pbinom(cfg$detractor_le - 1, cfg$max_grade - 1, p_mean)
+    if (cfg$mode == "NPS") {
+      score_mean = 100 * (p_promoter - p_detractor)
+    }else {
+      stop(paste("score_target_to_binom_prob: mode", cfg$mode, "unknown"))
+    }
+    if (score_mean < cfg$score_target) {
+      p_min = p_mean
+    }else {
+      p_max = p_mean
+    }
+    i = i + 1
+  }
+  p_mean
+}
+
+sample_votes = function(cfg, nb_samples) {
+  df.votes <- NULL
+  df.scores <- NULL
+  for (sample in seq(1, nb_samples)) {
+    .df.votes = draw_grades(cfg)
+    .df.votes$sample = rep(sample, nrow(.df.votes))
+    .df.scores = data.frame(
+      sample = c(sample),
+      score = c(round(compute_score(.df.votes$grade, cfg)))
+    )
+    if (is.null(df.votes)) {
+      df.votes = .df.votes
+      df.scores = .df.scores
+    }else {
+      df.votes = rbind(df.votes, .df.votes)
+      df.scores = rbind(df.scores, .df.scores)
+    }
+  }
+  return(list(
+    votes = df.votes,
+    scores = df.scores
+  ))
+}
+
+```
+
+# Measured NPS on samples
+
+## NPS #1
+
+```{r plot_distrib_nps_5_3}
+
+nps_5_3_config = list2env(list(
+  max_grade = 5,
+  nb_questions = 3,
+  detractor_le = 3,
+  promoter_ge = 5,
+  nb_people = 25,
+  score_target = 70,
+  mode = "NPS"
+))
+
+plot_vote_samples <- function(config) {
+  res.nps = sample_votes(config, nb_samples)
+  sample_labels <- setNames(
+    paste0('sample~', res.nps$scores$sample, '~~(widehat(score) == ', res.nps$scores$score, ')'),
+    res.nps$scores$sample
+  )
+
+  if (config$max_grade == 5) {
+    x.breaks = seq(1, 5)
+  }else if (config$max_grade == 10) {
+    x.breaks = seq(2, 10, by = 2)
+  }else {
+    x.breaks = seq(1, config$max_grade, by = round(config$max_grade / 5))
+  }
+
+  ggplot(
+    data = res.nps$votes,
+    mapping = aes(
+      x = grade
+    )
+  ) +
+    geom_bar() +
+    facet_wrap(
+      ~sample,
+      labeller = labeller(sample = sample_labels, .default = label_parsed)
+    ) +
+    scale_x_continuous(breaks = x.breaks) +
+    coord_cartesian(xlim = c(0.5, config$max_grade + 0.5)) +
+    theme_minimal(base_size = 22) +
+    theme(axis.text.y = element_blank()) +
+    labs(
+      title = paste('Sampled on ', config$nb_people, ' people x ', config$nb_questions, ' questions on a 1-', config$max_grade, ' scale', sep = ''),
+      subtitle = if (is.null(config$detractor_le)) {
+        paste('Score mode = ', config$mode, '; target = ', config$score_target, sep = '')
+      }else {
+        paste('Score mode = ', config$mode, '; detractors <= ', config$detractor_le, ', promoters >= ', config$promoter_ge, '; target = ', config$score_target, sep = '')
+      },
+      y = 'count'
+    )
+}
+
+plot_vote_samples(nps_5_3_config)
+```
+
+
+## NPS #2
+
+```{r plot_distrib_nps_5_1}
+
+nps_5_1_config = list2env(list(
+  max_grade = 5,
+  nb_questions = 1,
+  detractor_le = 3,
+  promoter_ge = 5,
+  nb_people = 25,
+  score_target = 70,
+  mode = "NPS"
+))
+
+
+plot_vote_samples(nps_5_1_config)
+```
+
+## NPS #3
+
+```{r plot_distrib_nps_10}
+
+nps_10_config = list2env(list(
+  nb_questions = 1,
+  max_grade = 10,
+  detractor_le = 6,
+  promoter_ge = 9,
+  nb_people = 100,
+  score_target = 70,
+  mode = "NPS"
+))
+
+plot_vote_samples(nps_10_config)
+
+```
+
+## Average
+
+```{r plot_distrib_avg_5}
+
+avg_5_config = list2env(list(
+  nb_questions = 3,
+  max_grade = 5,
+  nb_people = 23,
+  score_target = 65,
+  mode = "AVERAGE"
+))
+
+plot_vote_samples(avg_5_config)
+
+```
+
+# Bootstrapping
+
+```{r bootstrap_nps_5_1}
+nb_samples = 1000
+population_size = c(10, 20, 50, 100, 1000)
+df.scores = NULL
+for (nb_people in population_size) {
+  cfg <- nps_5_1_config
+  cfg$nb_people = nb_people
+
+  .df = sample_votes(cfg, nb_samples)$score
+  .df$pop_size = nb_people
+  if (is.null(df.scores)) {
+    df.scores = .df
+  }else {
+    df.scores = rbind(df.scores, .df)
+  }
+  quantile(df.scores$score, c(0.1, 0.5, 0.9))
+}
+
+```
+
+## Boxplot
+
+```{r bootstrap_boxplot}
+p_bootstrap = ggplot(
+  data = df.scores,
+  mapping = aes(
+    x = factor(pop_size),
+    y = score
+  )
+) +
+  geom_boxplot(
+    lwd = 1.5
+  ) +
+  theme_minimal(base_size = 22) +
+  labs(
+    x = "Population size",
+    y = "Score",
+    title = "Score intervals vs population size",
+    subtitle = paste('Score mode = ', nps_5_1_config$mode, '; detractors <= ', nps_5_1_config$detractor_le, ', promoters >= ', nps_5_1_config$promoter_ge, '; target = ', nps_5_1_config$score_target, sep = '')
+  )
+p_bootstrap
+```
+
+
+## Boxplot + jitter
+
+```{r bootstrap_boxplot_jitter}
+p_bootstrap + geom_jitter(
+  height = 1,
+  colour = 'orange',
+  alpha = .3
+)
+```
+
+## Violin plot with 90% CI
+
+```{r bootstrap_violin}
+quantiles <- df.scores %>%
+  group_by(pop_size) %>%
+  summarise(
+    q05 = quantile(score, 0.05, na.rm = TRUE),
+    q95 = quantile(score, 0.95, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+ggplot(
+  data = df.scores,
+  mapping = aes(
+    x = factor(pop_size),
+    y = score
+  )
+) +
+  geom_violin(
+    fill = 'orange',
+    alpha = 0.3
+  ) +
+  geom_errorbar(
+    data = quantiles,
+    aes(
+      x = factor(pop_size),
+      ymin = q05,
+      ymax = q95
+    ),
+    width = 0.25,
+    color = "blue",
+    inherit.aes = FALSE
+  ) +
+  theme_minimal(base_size = 22) +
+  labs(
+    x = "Population size",
+    y = "Score",
+    title = "Score distributions vs population size",
+    subtitle = paste('Score mode = ', nps_5_1_config$mode, '; detractors <= ', nps_5_1_config$detractor_le, ', promoters >= ', nps_5_1_config$promoter_ge, '; target = ', nps_5_1_config$score_target, sep = '')
+  )
+
+```
