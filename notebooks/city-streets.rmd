@@ -78,7 +78,7 @@ dbDisconnect(con)
 
 gender_names <- c("FEMALE", "MALE", "NEUTRAL", "NOT_HUMAN")
 gender_colors <- c(
-  "FEMALE" = "#f4cae4",
+  "FEMALE" = "#FF007F",
   "MALE" = rgb(93, 173, 226, maxColorValue = 255),
   "NEUTRAL" = "#666666",
   "NOT_HUMAN" = "#666666"

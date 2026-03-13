@@ -15,6 +15,7 @@ knitr::opts_chunk$set(
 )
 
 library(ggplot2)
+library(dplyr)
 ```
 ```{r length_same_base}
 dt.1 <- data.frame(
@@ -31,7 +32,7 @@ p_bar_same_base = ggplot(
     width = 0.7
   ) +
   scale_fill_manual(values = c('#1b9e77', '#d95f02')) +
-  scale_y_continuous(breaks = 100) +
+  scale_y_continuous(breaks = c(0, 100)) +
   guides(fill = "none") +
   theme_minimal(base_size = 22) +
   theme(
@@ -47,20 +48,21 @@ p_bar_same_base = ggplot(
   )
 p_bar_same_base
 ```
+
 ## Length, same base - solution
 
 ```{r length_same_base_solution}
 p_bar_same_base +
-    geom_label(
-      aes(
-        label=value
-      ),
-      size=12,
-      fill="transparent",
-      colour="white",
-      nudge_y =-5,
-      label.size = 0
-    )
+  geom_label(
+    aes(
+      label = value
+    ),
+    size = 12,
+    fill = "transparent",
+    colour = "white",
+    nudge_y = -5,
+    label.size = 0
+  )
 ```
 
 ## Bar chart with horizontal grid
@@ -83,7 +85,7 @@ p_bar_same_base +
 ```{r length_diff_base}
 dt.2 <- data.frame(
   name = c('A', 'A', 'B', 'B', 'C', 'C', 'D', 'D', 'E', 'E'),
-  value = c(10, 40, 90, 105, 40, 100, 20, 75, 130, 45),
+  value = c(10, 38, 90, 105, 40, 100, 20, 72, 130, 43),
   f = c('hide', 'show_blue', 'hide', 'show_blue', 'hide', 'show_red', 'hide', 'show_blue', 'hide', 'show_blue')
 )
 dt.2$f = factor(dt.2$f, levels = c('show_red', 'show_blue', 'hide'))
@@ -99,6 +101,7 @@ p_bar_different_base = ggplot(
   scale_fill_manual(values = c('#d95f02', '#1b9e77', '#e0e0e0')) +
   guides(fill = "none") +
   theme_minimal(base_size = 22) +
+  scale_y_continuous(breaks = c(0, 200)) +
   theme(
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
@@ -112,6 +115,28 @@ p_bar_different_base = ggplot(
   )
 
 p_bar_different_base
+```
+
+## Length, different base
+
+```{r length_diff_base_solution}
+bar_different_base_labels = dt.2 %>%
+  group_by(name = name) %>%
+  summarise(tot = sum(value), value = last(value), .groups = "drop")
+
+p_bar_different_base +
+  geom_label(
+    data = bar_different_base_labels,
+    aes(
+      y = tot,
+      label = value
+    ),
+    size = 12,
+    fill = "transparent",
+    colour = "white",
+    nudge_y = -8,
+    label.size = 0
+  )
 ```
 
 ## Meat Map - Colour Hue Scale
