@@ -1,0 +1,277 @@
+---
+title: "What about oil price evolution?"
+output: html_document
+---
+
+```{r setup, echo = FALSE, include = FALSE, warning = FALSE,}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(shiny)
+library(ggplot2)
+library(dplyr)
+```
+
+```{r data_load}
+df.eu.gas.price <- read.csv('data/oil_prices/energy-eu-gas-price.csv')
+df.eu.gas.price$date = as.Date(df.eu.gas.price$date)
+
+
+
+nb_samples = nrow(subset(df.eu.gas.price, country == 'EU'))
+
+df.eu.gas.price <- df.eu.gas.price %>%
+  group_by(country) %>%
+  filter(n() == nb_samples) %>%
+  ungroup()
+
+countries = unique(df.eu.gas.price$country)
+
+df.brent = read.csv('data/oil_prices/DCOILBRENTEU.csv')
+df.brent$date = as.Date(df.brent$observation_date)
+df.brent$usd = df.brent$DCOILBRENTEU
+df.brent$DCOILBRENTEU <- NULL
+df.brent$observation_date <- NULL
+
+df.fx = read.csv('data/oil_prices/ECB Data Portal_20260314001229.csv')
+df.fx$date = as.Date(df.fx$DATE)
+df.fx$DATE <- NULL
+df.fx$TIME.PERIOD <- NULL
+df.fx$usd.eur = df.fx$US.dollar.Euro.ECB.reference.exchange.rate..EXR.D.USD.EUR.SP00.A.
+df.fx$US.dollar.Euro.ECB.reference.exchange.rate..EXR.D.USD.EUR.SP00.A. <- NULL
+
+df.brent = merge(df.brent, df.fx)
+df.brent$eur = df.brent$usd / df.brent$usd.eur
+
+## adding relative price taking the base on first date
+start.per.country = subset(df.euro95, date == min(df.euro95$date))
+rownames(start.per.country) <- start.per.country$country
+
+df.euro95 = df.eu.gas.price %>%
+  filter(gas_type == "euro95")
+
+df.euro95$rel_price = df.euro95$price_per_liter_euro_with_tax / start.per.country[df.euro95$country,]$price_per_liter_euro_with_tax
+
+df.brent$rel_price = df.brent$eur / (subset(df.brent, date == min(df.brent$date))$eur[1])
+
+```
+```{r oil_price_france}
+ggplot(
+  subset(df.eu.gas.price, country == 'FR'),
+  aes(
+    x = date,
+    y = price_per_liter_euro_with_tax,
+    colour = gas_type,
+    group = gas_type
+  )
+) +
+  geom_line() +
+  geom_line(
+    data = df.brent,
+    aes(x = date, y = rel_price),
+    colour = 'black',
+    lwd = 0.5,
+    inherit.aes = FALSE
+  ) +
+  theme_minimal()
+```
+```{r oil_price_euro95}
+ggplot(
+  subset(df.eu.gas.price, gas_type == 'euro95'),
+  aes(
+    x = date,
+    y = price_per_liter_euro_with_tax,
+    colour = country,
+    group = country
+  )
+) +
+  geom_line() +
+  theme_minimal()
+```
+```{r oil_price_euro95_country_compare}
+
+
+
+
+ggplot(
+  subset(df.euro95, gas_type == "euro95"),
+  aes(
+    x = date,
+    y = rel_price,
+    colour = country,
+    group = country
+  )
+) +
+  geom_smooth(
+    se = FALSE,
+    span=0.1    ,
+    method = 'loess'
+  ) +
+  geom_line(
+    data = df.brent,
+    aes(x = date, y = rel_price),
+    colour = 'black',
+    lwd = 0.5,
+    alpha=0.7
+  ) +
+  theme_minimal()
+```
+
+```{r oil_price_pairwise_correlation_heatmap}
+library(tidyr)
+
+# Build a country x date matrix for euro95 prices
+df_euro95_wide <- df.eu.gas.price %>%
+  filter(gas_type == "euro95") %>%
+  filter(!country %in% c('EU', 'EUR')) %>%
+  select(date, country, price_per_liter_euro_with_tax) %>%
+  pivot_wider(names_from = country, values_from = price_per_liter_euro_with_tax) %>%
+  arrange(date)
+
+# Pairwise correlation matrix across countries
+country_cols <- setdiff(names(df_euro95_wide), "date")
+corr_matrix <- cor(df_euro95_wide[country_cols], use = "pairwise.complete.obs")
+
+# Reorder to group similar countries visually
+country_order <- colnames(corr_matrix)[hclust(as.dist(1 - corr_matrix))$order]
+
+df_heatmap <- as.data.frame(as.table(corr_matrix)) %>%
+  rename(country_x = Var1, country_y = Var2, correlation = Freq)
+
+df_heatmap = subset(df_heatmap, country_x != country_y)
+
+ggplot(df_heatmap, aes(
+  x = factor(country_x, levels = country_order),
+  y = factor(country_y, levels = rev(country_order)),
+  fill = log(1 - correlation)
+)) +
+  geom_tile(color = "white", linewidth = 0.1) +
+  coord_fixed() +
+  labs(
+    title = "Country-to-Country Correlation Heat Map (euro95)",
+    subtitle = "Correlation of price evolution over time",
+    x = NULL,
+    y = NULL,
+    fill = "r"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+```
+
+```{r oil_price_pairwise_correlation_heatmap_clustered}
+library(tidyr)
+library(seriation)
+
+# Build a country x date matrix for euro95 prices
+df_euro95_wide <- df.eu.gas.price %>%
+  filter(gas_type == "euro95") %>%
+  filter(!country %in% c('EU', 'EUR')) %>%
+  select(date, country, price_per_liter_euro_with_tax) %>%
+  pivot_wider(names_from = country, values_from = price_per_liter_euro_with_tax) %>%
+  arrange(date)
+
+# Pairwise correlation matrix across countries
+country_cols <- setdiff(names(df_euro95_wide), "date")
+corr_matrix <- cor(df_euro95_wide[country_cols], use = "pairwise.complete.obs")
+
+# Build a valid distance matrix and optimize leaf order with OLO
+corr_matrix[is.na(corr_matrix)] <- 0
+diag(corr_matrix) <- 1
+dist_mat <- 1 - corr_matrix
+dist_mat[dist_mat < 0] <- 0
+dist_matrix <- as.dist(dist_mat)
+olo <- seriate(dist_matrix, method = "OLO")
+country_order <- labels(dist_matrix)[get_order(olo)]
+
+# Long format for ggplot heatmap
+df_heatmap <- as.data.frame(as.table(corr_matrix)) %>%
+  rename(country_x = Var1, country_y = Var2, correlation = Freq) %>%
+  mutate(
+    country_x = factor(country_x, levels = country_order),
+    country_y = factor(country_y, levels = rev(country_order))
+  )
+
+ggplot(df_heatmap, aes(
+  x = country_x,
+  y = country_y,
+  fill = correlation
+)) +
+  geom_tile(color = "white", linewidth = 0.1) +
+  coord_fixed() +
+  labs(
+    title = "Clustered Correlation Heat Map (euro95, OLO)",
+    subtitle = "Countries are ordered with optimal leaf ordering (seriation)",
+    x = NULL,
+    y = NULL,
+    fill = "r"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank()
+  )
+```
+
+```{r oil_price_correlation}
+library(tidyr)
+library(zoo)
+
+# Filter for euro95 and prepare wide format
+df_wide <- df.eu.gas.price %>%
+  filter(gas_type == "euro95") %>%
+  filter(!country %in% c('EUR')) %>%
+  select(date, country, price_per_liter_euro_with_tax) %>%
+  pivot_wider(names_from = country, values_from = price_per_liter_euro_with_tax) %>%
+  arrange(date)
+
+# We'll correlate each country with the EU average (EU column)
+countries <- setdiff(names(df_wide), c("date", "EU"))
+window_size <- 52 # 1 year rolling correlation
+
+# Calculate rolling correlation for each country vs EU.
+# Each window must be aligned on both series (country and EU), so we roll on row indices.
+df_corr <- tibble(date = df_wide$date)
+for (country in countries) {
+  df_corr[[paste0("corr_", country)]] <- zoo::rollapplyr(
+    seq_len(nrow(df_wide)),
+    width = window_size,
+    FUN = function(idx) {
+      x <- df_wide[[country]][idx]
+      y <- df_wide$EU[idx]
+      keep <- complete.cases(x, y)
+      if (sum(keep) < 2) {
+        return(NA_real_)
+      }
+      x <- x[keep]
+      y <- y[keep]
+      if (sd(x) == 0 || sd(y) == 0) {
+        return(NA_real_)
+      }
+      cor(x, y)
+    },
+    fill = NA
+  )
+}
+
+df_corr <- df_corr %>%
+  pivot_longer(cols = starts_with("corr_"),
+               names_to = "country",
+               values_to = "correlation",
+               names_prefix = "corr_") %>%
+  filter(!is.na(correlation))
+
+ggplot(df_corr, aes(x = date, y = correlation)) +
+  geom_line() +
+  facet_wrap(~country) +
+  theme_minimal(base_size = 22) +
+  theme(
+    axis.text.x = element_text(size=13)
+  ) +
+    scale_x_date(date_labels = "%y") +
+  labs(title = "Correlation of euro95 with EU Average",
+       subtitle = "Rolling 1-year correlation of prices, by country",
+       y = "Correlation Coefficient",
+       x = "Date") +
+  theme(legend.position = "none")
+```

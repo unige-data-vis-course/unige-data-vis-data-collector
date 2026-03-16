@@ -108,9 +108,22 @@ The sub-indexes are based on the sum of scores on roughly 12 indicators per sub-
   - update the database with the ispeople and gender for each street name
   - proceed by batches of by default 500 street names
   - display the progress in the console with tdqm
-- [ ] in PeopleGenderInferenceService, use Pydantic to parse the output of the LLM cal (list[StreetPeopleGenderInferenceItem)]) and provide pydantic instructions to the LLM
+- [x] in PeopleGenderInferenceService, use Pydantic to parse the output of the LLM cal (list[StreetPeopleGenderInferenceItem)]) and provide pydantic instructions to the LLM
 - make a script `city_streets_db_to_csv.py` that converts the sqlite database to a list of csv files.
   - points.csv, segments.csv, streets.csv
   - by default, save the files in `out/city_streets_csv/`
   - by default, load the database from databases/city_streets.db
-  - 
+ 
+## Oil Price
+
+- [x] transform gasline prices from excel file to a a data vis ready CSV file.
+  - the output file should have the columns:
+     - date
+     - country (ISO2 code)
+     - gas_type: euro95 or diesel
+     - price_per_liter_euro_with_tax
+  - The input file can be found in [Weekly_Oil_Bulletin_Prices_History_maticni_4web.xlsx](../tmp/Weekly_Oil_Bulletin_Prices_History_maticni_4web.xlsx)
+     - parse only the first sheet
+     - each country is spread over several column, with ISO code being a two letter prefix
+     - lines 2 and 3 must be skipped
+     - provided prices are for 1000L. You must therefore divide by 1000.
