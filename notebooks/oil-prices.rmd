@@ -5,13 +5,24 @@ output: html_document
 
 ```{r setup, echo = FALSE, include = FALSE, warning = FALSE,}
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
-library(shiny)
 library(ggplot2)
 library(dplyr)
+
+if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+  # Interactive in RStudio: use the current editor document path
+  rmd_path <- rstudioapi::getActiveDocumentContext()$path
+} else {
+  # When knitting/rendering: knitr knows the input
+  rmd_path <- knitr::current_input(dir = TRUE)
+}
+if (!is.null(rmd_path) && nzchar(rmd_path)) {
+  knitr::opts_knit$set(root.dir = dirname(normalizePath(rmd_path)))
+  setwd(dirname(normalizePath(rmd_path)))
+}
 ```
 
 ```{r data_load}
-df.eu.gas.price <- read.csv('data/oil_prices/energy-eu-gas-price.csv')
+df.eu.gas.price <- read.csv('../data/oil_prices/energy-eu-gas-price.csv')
 df.eu.gas.price$date = as.Date(df.eu.gas.price$date)
 
 
@@ -25,13 +36,13 @@ df.eu.gas.price <- df.eu.gas.price %>%
 
 countries = unique(df.eu.gas.price$country)
 
-df.brent = read.csv('data/oil_prices/DCOILBRENTEU.csv')
+df.brent = read.csv('../data/oil_prices/DCOILBRENTEU.csv')
 df.brent$date = as.Date(df.brent$observation_date)
 df.brent$usd = df.brent$DCOILBRENTEU
 df.brent$DCOILBRENTEU <- NULL
 df.brent$observation_date <- NULL
 
-df.fx = read.csv('data/oil_prices/ECB Data Portal_20260314001229.csv')
+df.fx = read.csv('../data/oil_prices/ECB Data Portal_20260314001229.csv')
 df.fx$date = as.Date(df.fx$DATE)
 df.fx$DATE <- NULL
 df.fx$TIME.PERIOD <- NULL
@@ -41,14 +52,16 @@ df.fx$US.dollar.Euro.ECB.reference.exchange.rate..EXR.D.USD.EUR.SP00.A. <- NULL
 df.brent = merge(df.brent, df.fx)
 df.brent$eur = df.brent$usd / df.brent$usd.eur
 
-## adding relative price taking the base on first date
-start.per.country = subset(df.euro95, date == min(df.euro95$date))
+
+start.per.country = subset(df.eu.gas.price, date == min(df.eu.gas.price$date) & gas_type == 'euro95')
 rownames(start.per.country) <- start.per.country$country
 
 df.euro95 = df.eu.gas.price %>%
   filter(gas_type == "euro95")
 
+## adding relative price taking the base on first date
 df.euro95$rel_price = df.euro95$price_per_liter_euro_with_tax / start.per.country[df.euro95$country,]$price_per_liter_euro_with_tax
+
 
 df.brent$rel_price = df.brent$eur / (subset(df.brent, date == min(df.brent$date))$eur[1])
 
@@ -110,7 +123,8 @@ ggplot(
     aes(x = date, y = rel_price),
     colour = 'black',
     lwd = 0.5,
-    alpha=0.7
+    alpha=0.7,
+    inherit.aes = FALSE
   ) +
   theme_minimal()
 ```
