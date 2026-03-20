@@ -69,7 +69,7 @@ def _cmd_collate_measures(imp: GapminderImporter, concept_ids: str, output: str)
     Path(output).mkdir(exist_ok=True, parents=True)
 
     out_file = Path(output) / "gapminder-collated.csv"
-    df.to_csv(out_file, index=False)
+    df.to_csv(out_file, index=False, sep=";", encoding="utf-8-sig")
     return str(out_file)
 
 

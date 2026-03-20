@@ -88,7 +88,7 @@ def main():
         os.makedirs(output_dir)
 
     df = transform_oil_prices(args.input)
-    df.to_csv(args.output, index=False)
+    df.to_csv(args.output, index=False, sep=";", encoding="utf-8-sig")
     print(f"Transformation complete. Saved to {args.output}")
 
 
