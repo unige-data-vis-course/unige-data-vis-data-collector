@@ -29,7 +29,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--collate-measures",
         type=str,
-        help="take a list of measure ids to collated in a .csv file, in the --output directory",
+        help="take a list of measure ids to collated in a .xlsx file, in the --output directory",
     )
 
     p.add_argument(
@@ -68,14 +68,14 @@ def _cmd_collate_measures(imp: GapminderImporter, concept_ids: str, output: str)
 
     Path(output).mkdir(exist_ok=True, parents=True)
 
-    out_file = Path(output) / "gapminder-collated.csv"
-    df.to_csv(out_file, index=False, sep=";", encoding="utf-8-sig")
+    out_file = Path(output) / "gapminder-collated.xlsx"
+    df.to_excel(out_file, index=False)
     return str(out_file)
 
 
 def _cmd_copy_countries(imp: GapminderImporter, output: str) -> str:
     Path(output).mkdir(exist_ok=True, parents=True)
-    out_file = Path(output) / "gapminder-countries.csv"
+    out_file = Path(output) / "gapminder-countries.xlsx"
     shutil.copyfile(imp.country_def_file(), out_file)
     return str(out_file)
 
