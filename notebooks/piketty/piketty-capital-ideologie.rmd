@@ -1,0 +1,142 @@
+---
+title: "Piketty: Capital Idéologie"
+output: ioslides_presentation
+author: "Alexandre Masselot"
+date: "2026-03-19"
+---
+```{r package_setup, echo = FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+
+knitr::opts_chunk$set(
+  fig.width = 12,   # increase width
+  fig.height = 6,
+  out.width = "100%"   # VERY IMPORTANT
+)
+
+if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+  # Interactive in RStudio: use the current editor document path
+  rmd_path <- rstudioapi::getActiveDocumentContext()$path
+} else {
+  # When knitting/rendering: knitr knows the input
+  rmd_path <- knitr::current_input(dir = TRUE)
+}
+if (!is.null(rmd_path) && nzchar(rmd_path)) {
+  knitr::opts_knit$set(root.dir = dirname(normalizePath(rmd_path)))
+  setwd(dirname(normalizePath(rmd_path)))
+}
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(RColorBrewer)
+```
+# Piketty: Capital Idéologie
+
+Data are from (http://piketty.pse.ens.fr/fr/ideologie)
+
+##
+
+```{r sweden_property}
+
+df.repartition.sweden <- read.csv("piketty-sweden-property-repartition.csv")
+df.repartition.sweden$quantile = factor(df.repartition.sweden$quantile, levels = c("inf_50", "50_90", "90_99", "sup_99"))
+level_names = c("50% les plus pauvres", "entre 50 et 90%", "entre 90 et 99%", "1% les plus riches")
+
+
+ggplot(
+  data = df.repartition.sweden,
+  aes(
+    x = year,
+    y = rel_property * 100,
+    colour = quantile
+  )
+) +
+  geom_line(lwd = 2) +
+  scale_color_manual(
+    values = c(
+      rgb(179, 36, 24, maxColorValue = 255),
+      rgb(79, 113, 190, maxColorValue = 255),
+      rgb(223, 131, 68, maxColorValue = 255),
+      rgb(87, 157, 85, maxColorValue = 255)
+    ),
+    labels = level_names,
+    guide = guide_legend(reverse = TRUE)
+  ) +
+  theme_minimal(base_size = 22) +
+  theme(
+    plot.caption = element_text(hjust = 0, size = 10, face = "italic"),
+    legend.position = c(1, 1.02),
+    legend.justification = c(1, 1),
+    legend.background = element_rect(fill = scales::alpha("white", 0.85), colour = NA),
+  ) +
+  labs(
+    title = "La répartition de la propriété en Suède, 1780-2015",
+    y = "Part dans le total des propriétés privées",
+    x = "",
+    colour = NULL
+  )
+
+```
+
+<p style="font-size:70%">
+La part des 10% les plus riches dans le total des propriétés privées
+(actifs immobiliers, professionnels et financiers, nets de dettes)
+était autour de 84%-88% en Suède entre les années 1780 et 1910.
+La déconcentration de la propriété commence à la suite de la Première guerre mondiale
+et s'interrompt au cours des années 1980.
+Elle s'est faite principalement au bénéfice des "classes moyennes patrimoniales" (les 40% du milieu),
+ici définies comme les groupes intermédiaires entre les "classes populaires" (les 50% les plus pauvres) et les "classes supérieures" (les 10% les plus riches).
+Sources et séries: voir piketty.pse.ens.fr/ideologie.
+</p>
+
+
+##
+
+```{r sweden_property_stacked, fig.height = 9}
+p = ggplot(
+  data = df.repartition.sweden,
+  aes(
+    x = year,
+    y = rel_property,
+    fill = quantile
+  )
+) +
+  geom_area(
+    position = position_fill(reverse = TRUE),
+    linewidth = 0
+  ) +
+  scale_fill_manual(
+    values = c(
+      rgb(179, 36, 24, maxColorValue = 255),
+      rgb(79, 113, 190, maxColorValue = 255),
+      rgb(223, 131, 68, maxColorValue = 255),
+      rgb(87, 157, 85, maxColorValue = 255)
+    ),
+    labels = level_names
+  ) +
+  scale_y_continuous(
+    labels = scales::label_percent(accuracy = 1)
+  ) +
+  theme_minimal(base_size = 22) +
+  theme(legend.position = "bottom") +
+  labs(
+    title = "La répartition de la propriété en Suède, 1780-2015",
+    y = "Part dans le total des propriétés privées",
+    x = "",
+    fill = NULL
+  )
+
+p
+```
+
+
+##
+
+
+```{r, fig.height = 9}
+p + scale_fill_manual(
+  values = rev(brewer.pal(5, "YlOrRd")[2:5]),
+  labels = level_names,
+)
+```
