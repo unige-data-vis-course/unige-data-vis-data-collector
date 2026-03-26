@@ -26,6 +26,7 @@ if (!is.null(rmd_path) && nzchar(rmd_path)) {
 }
 
 library(ggplot2)
+library(ggimage)
 library(dplyr)
 library(tidyr)
 library(stringr)
@@ -140,3 +141,100 @@ p + scale_fill_manual(
   labels = level_names,
 )
 ```
+
+## Isotype
+
+```{r isotype_horiz}
+source('svg-utils.R')
+
+human_male_svg = '<svg fill="__FILL_COLOR__"  version="1.2" baseProfile="tiny" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-69 0 117 256" xml:space="preserve"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M-10.9,4.9c11.3,0,20.5,9.2,20.5,20.5S0.4,45.9-10.9,45.9s-20.5-9.2-20.5-20.5S-22.2,4.9-10.9,4.9z M14.9,51.2h-51.2 c-14.2,0-25.6,11.4-25.6,25.6v62.6c0,4.9,3.9,9,9,9s9-3.9,9-9V81.9c0-1.4,1.2-2.6,2.6-2.6s2.6,1.2,2.6,2.6v155.2 c0,7.7,5.7,14,12.8,14s12.8-6.3,12.8-14v-88.5c0-1.4,1.2-2.6,2.6-2.6c1.4,0,2.6,1.2,2.6,2.6v88.5c0,7.7,5.7,14,12.8,14 c7.1,0,12.8-6.3,12.8-14V81.9c0-1.4,1.2-2.6,2.6-2.6s2.6,1.2,2.6,2.6v57.6c0,4.9,3.9,9,9,9s9-3.9,9-9V76.8 C40.5,62.6,28.8,51.2,14.9,51.2z"></path> </g></svg>'
+
+human_female_svg = '<svg fill="#000000" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><title>ionicons-v5-r</title><circle cx="255.75" cy="56" r="56"/><path d="M394.63,277.9,384.3,243.49s0-.07,0-.11l-22.46-74.86h-.05l-2.51-8.45a44.87,44.87,0,0,0-43-32.08h-120a44.84,44.84,0,0,0-43,32.08l-2.51,8.45h-.06l-22.46,74.86s0,.07,0,.11L117.88,277.9c-3.12,10.39,2.3,21.66,12.57,25.14a20,20,0,0,0,25.6-13.18l25.58-85.25h0l2.17-7.23A8,8,0,0,1,199.33,200a7.78,7.78,0,0,1-.17,1.61v0L155.43,347.4A16,16,0,0,0,170.75,368h29V482.69c0,16.46,10.53,29.31,24,29.31s24-12.85,24-29.31V368h16V482.69c0,16.46,10.53,29.31,24,29.31s24-12.85,24-29.31V368h30a16,16,0,0,0,15.33-20.6L313.34,201.59a7.52,7.52,0,0,1-.16-1.59,8,8,0,0,1,15.54-2.63l2.17,7.23h0l25.57,85.25A20,20,0,0,0,382.05,303C392.32,299.56,397.74,288.29,394.63,277.9Z"/></svg>'
+
+male_svg_file = build_svg(human_male_svg, replace_list = list('__FILL_COLOR__' = '#00ff00'))
+female_svg_file = build_svg(human_female_svg)
+
+
+#colors = rev(brewer.pal(5, "YlOrRd")[2:5])
+colors = c(
+      rgb(179, 36, 24, maxColorValue = 255),
+      rgb(79, 113, 190, maxColorValue = 255),
+      rgb(223, 131, 68, maxColorValue = 255),
+      rgb(87, 157, 85, maxColorValue = 255)
+    )
+levels = c("inf_50", "50_90", "90_99", "sup_99")
+level_colors = list(
+  "inf_50" = colors[1],
+  "50_90" = colors[2],
+  "90_99" = colors[3],
+  "sup_99" = colors[4]
+)
+
+male_svg_files = build_svg(human_male_svg, replace_list = list('__FILL_COLOR__' = '#00ff00'))
+
+df.isotype.def = data.frame(
+  level = levels,
+  n = c(50, 40, 9, 1),
+  image_male = unlist(lapply(levels, function(l) { build_svg(human_male_svg, replace_list = list('__FILL_COLOR__' = level_colors[[l]])) }))
+)
+
+df.isotype = uncount(df.isotype.def, n)
+
+df.isotype$level = factor(df.isotype$level, levels = levels, labels = level_names)
+df.isotype$image = df.isotype$image_male
+df.isotype$y = ave(seq_len(nrow(df.isotype)), df.isotype$level, FUN = seq_along)
+
+nb.cols = 5
+ggplot(
+  df.isotype,
+  aes(
+    x = ((y - 1) %% nb.cols),
+    y = (y - 1) %/% nb.cols
+  )
+) +
+  geom_image(
+    aes(image = image),
+    size = 1 / max(df.isotype.def$n) * nb.cols / 1.2,
+    by = "height"
+  ) +
+  facet_grid(. ~ level) +
+  scale_x_continuous(limits = c(-0.5, nb.cols + 0.5), breaks = NULL) +
+  scale_y_continuous(breaks = NULL) +
+  theme_minimal(base_size = 22) +
+  theme(
+    panel.grid = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "none"
+  )
+```
+
+## Isotype stacked
+
+```{r isotype_stacked}
+
+ggplot(
+  df.isotype,
+  aes(
+    x = ((seq(nrow(df.isotype)) - 1) %% nb.cols)/nb.cols,
+    y = (seq(nrow(df.isotype)) - 1) %/% nb.cols
+  )
+) +
+  geom_image(
+    aes(image = image),
+    size = 1 / nrow(df.isotype) * nb.cols / 1.2,
+    by = "height"
+  ) +
+  scale_x_continuous(limits = c(-0.5, nb.cols + 0.5), breaks = NULL) +
+  scale_y_continuous(breaks = NULL) +
+  theme_minimal(base_size = 22) +
+  theme(
+    panel.grid = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "none"
+  )
+```
+
