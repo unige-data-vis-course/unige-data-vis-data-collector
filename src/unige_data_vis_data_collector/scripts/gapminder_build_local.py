@@ -68,14 +68,15 @@ def _cmd_collate_measures(imp: GapminderImporter, concept_ids: str, output: str)
 
     Path(output).mkdir(exist_ok=True, parents=True)
 
-    out_file = Path(output) / "gapminder-collated.xlsx"
-    df.to_excel(out_file, index=False)
+    df.to_excel(Path(output) / "gapminder-collated.xlsx", index=False)
+    out_file = Path(output) / "gapminder-collated.csv"
+    df.to_csv(out_file, index=False)
     return str(out_file)
 
 
 def _cmd_copy_countries(imp: GapminderImporter, output: str) -> str:
     Path(output).mkdir(exist_ok=True, parents=True)
-    out_file = Path(output) / "gapminder-countries.xlsx"
+    out_file = Path(output) / "gapminder-countries.csv"
     shutil.copyfile(imp.country_def_file(), out_file)
     return str(out_file)
 
