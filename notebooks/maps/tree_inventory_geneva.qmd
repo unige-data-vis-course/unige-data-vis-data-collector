@@ -277,3 +277,132 @@ message("Story 02 checks passed.")
 Now that we know what the data can and cannot tell us, the next section builds visualisations step by step — starting with the simplest possible chart and adding one layer at a time.
 
 ---
+
+## Univariate Distributions and the Grammar of a Basic Chart {#story-03}
+
+This section builds a single chart from scratch across four incremental steps, making each layer of the grammar visible before adding the next. The **learning objective** is to internalise ggplot2's layered structure: data → aesthetic → geom → stat → scale → theme. The **grammar concept** is that every chart is an accumulation of deliberate choices, not a black-box output.
+
+```{r s03-load}
+trees <- sf::st_read(here("data", "processed", "trees_clean.gpkg"), quiet = TRUE)
+hauteur <- trees |>
+  sf::st_drop_geometry() |>
+  filter(!is.na(hauteur), hauteur > 0)
+```
+
+**Step 1 — data + aesthetic only.** We declare what goes on each axis. No geometry yet, so the plot is an empty canvas with labelled axes.
+
+```{r s03-step1}
+p <- ggplot(hauteur, aes(x = hauteur))
+p
+```
+
+*What to look at:* The axis limits are already set from the data range. ggplot2 knows where the data lives; we just have not told it how to draw it yet.
+
+**Step 2 — add a geom.** `geom_histogram()` chooses `stat_bin()` automatically and draws one bar per bin.
+
+```{r s03-step2}
+p <- p + geom_histogram(binwidth = 5, colour = "white")
+p
+```
+
+*What to look at:* The default grey bars and the automatic y-axis label `count` appear. The distribution is right-skewed: most trees are between 5 and 20 m, with a long tail of tall specimens.
+
+**Step 3 — add a scale.** We apply a viridis fill to encode density visually, and format the x-axis with units.
+
+```{r s03-step3}
+p <- ggplot(hauteur, aes(x = hauteur, fill = after_stat(count))) +
+  geom_histogram(binwidth = 5, colour = "white") +
+  scale_fill_viridis_c(option = "D", guide = "none") +
+  scale_x_continuous(labels = label_number(suffix = " m"))
+p
+```
+
+*What to look at:* The fill gradient reinforces the shape of the distribution without adding a legend, because the x position already encodes height — mapping the same variable twice would be redundant.
+
+**Step 4 — complete the chart.** Title, subtitle, axis labels, and caption are mandatory in every publication-quality figure.
+
+```{r s03-step4}
+p <- p +
+  labs(
+    title    = "Most Geneva trees are between 5 and 20 metres tall",
+    subtitle = "Histogram of total height — 238 882 isolated trees, canton of Geneva",
+    x        = "Total height (m)",
+    y        = "Number of trees",
+    caption  = "Source: SITG, ICA — SIPV_ICA_ARBRE_ISOLE"
+  )
+p
+```
+
+### How bin width changes the story
+
+The same data under three different bin widths tells visibly different stories. Too narrow and noise dominates; too wide and structure disappears.
+
+```{r s03-binwidth-compare}
+make_hist <- function(bw, label) {
+  ggplot(hauteur, aes(x = hauteur)) +
+    geom_histogram(binwidth = bw, fill = viridis::viridis(1, begin = 0.5),
+                   colour = "white") +
+    scale_x_continuous(labels = label_number(suffix = " m")) +
+    labs(title = paste0("binwidth = ", bw, " m"), x = NULL, y = "Count",
+         caption = "Source: SITG, ICA")
+}
+
+make_hist(1, "1 m") | make_hist(5, "5 m") | make_hist(20, "20 m")
+```
+
+*What to look at:* At 1 m the jagged individual bars distract from the overall shape; at 20 m the bimodal suggestion in the 5–20 m range is completely hidden; at 5 m we see both the peak and the tail clearly. Bin width is a modelling decision, not a default to accept blindly.
+
+### Density as an alternative
+
+`geom_density()` replaces the discretisation step with a kernel smoother. It answers "what is the probability of finding a tree at this height?" rather than "how many trees fall in this bin?".
+
+```{r s03-density}
+ggplot(hauteur, aes(x = hauteur)) +
+  geom_density(fill = viridis::viridis(1, begin = 0.5), alpha = 0.7,
+               colour = viridis::viridis(1, begin = 0.3)) +
+  scale_x_continuous(labels = label_number(suffix = " m")) +
+  labs(
+    title    = "Probability density of tree height",
+    subtitle = "Kernel density estimate with default bandwidth",
+    x        = "Total height (m)",
+    y        = "Density",
+    caption  = "Source: SITG, ICA"
+  )
+```
+
+*What to look at:* The density curve smooths over the bin-width artefacts, but it implicitly extends to negative heights — a physical impossibility. Prefer `geom_density()` when the goal is shape comparison across groups; prefer `geom_histogram()` when raw counts matter.
+
+### Log scale for trunk circumference
+
+Trunk circumference spans two orders of magnitude (a few centimetres for a young sapling to several hundred centimetres for a veteran tree), which compresses most of the distribution against the left axis on a linear scale.
+
+```{r s03-log-compare}
+circ <- trees |>
+  sf::st_drop_geometry() |>
+  filter(!is.na(circonfere), circonfere > 0)
+
+p_lin <- ggplot(circ, aes(x = circonfere)) +
+  geom_histogram(bins = 60, fill = viridis::viridis(1, begin = 0.5), colour = "white") +
+  scale_x_continuous(labels = label_number(suffix = " cm")) +
+  labs(title = "Linear scale", x = "Circumference (cm)", y = "Count",
+       caption = "Source: SITG, ICA")
+
+p_log <- ggplot(circ, aes(x = circonfere)) +
+  geom_histogram(bins = 60, fill = viridis::viridis(1, begin = 0.7), colour = "white") +
+  scale_x_log10(labels = label_number(suffix = " cm")) +
+  labs(title = "Log₁₀ scale", x = "Circumference (cm, log scale)", y = "Count",
+       caption = "Source: SITG, ICA")
+
+p_lin | p_log
+```
+
+*What to look at:* The log scale reveals a near-normal distribution in log space — a log-normal distribution — which is exactly what allometric growth theory predicts. This will become important in section 5 when we fit the DBH–height relationship.
+
+```{r verify-03}
+stopifnot("hauteur data empty" = nrow(hauteur) > 100000)
+message("Story 03 checks passed.")
+```
+
+We have now built and varied a univariate chart layer by layer. The next section scales up to a categorical variable with 200+ levels, which forces us to choose an encoding that matches the perceptual task.
+
+---
