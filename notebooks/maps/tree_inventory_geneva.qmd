@@ -1,0 +1,114 @@
+---
+title: "Geneva Tree Inventory: Exploring Urban Canopy with R and ggplot2"
+subtitle: "A grammar-of-graphics journey through the cantonal isolated tree inventory"
+date: today
+format:
+  html:
+    self-contained: true
+    toc: true
+    toc-depth: 2
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+    fig-width: 10
+    fig-height: 6
+    df-print: paged
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Project Bootstrap and Data Acquisition {#story-01}
+
+This section sets up the project environment, locates or downloads the cantonal tree inventory, and converts it from a Shapefile bundle into a single GeoPackage file. The **learning objective** is to understand how geospatial data reaches R and how format choices affect long-term reproducibility. The **grammar-of-graphics concept** introduced here is that every visualisation begins with a clean, well-understood data source — garbage in, garbage out applies to maps as much as to bar charts.
+
+```{r packages}
+library(here)
+library(sf)
+library(tidyverse)
+library(naniar)
+library(patchwork)
+library(scales)
+library(viridis)
+library(treemapify)
+library(ggrepel)
+library(broom)
+library(ggspatial)
+library(geodata)
+library(colorspace)
+library(lubridate)
+
+theme_set(theme_minimal(base_size = 12))
+
+tibble(
+  package = c("sf", "tidyverse", "patchwork", "viridis", "treemapify",
+              "ggrepel", "broom", "ggspatial", "geodata", "naniar",
+              "colorspace", "lubridate"),
+  version = map_chr(package, \(p) as.character(packageVersion(p)))
+) |> print(n = Inf)
+```
+
+```{r constants}
+# Update if SITG changes download locations
+SITG_TREE_URL    <- "https://ge.ch/sitg/geodata/SITG/OPENDATA/SIPV_ICA_ARBRE_ISOLE-SHP.zip"
+SITG_COMMUNE_URL <- "https://ge.ch/sitg/geodata/SITG/OPENDATA/ARIG_COMMUNE-SHP.zip"
+```
+
+```{r acquire-data}
+dir.create(here("data", "raw"),       recursive = TRUE, showWarnings = FALSE)
+dir.create(here("data", "processed"), recursive = TRUE, showWarnings = FALSE)
+
+# Accept data from the bundled location (pre-downloaded) or the standard raw location
+shp_bundle <- here("data", "SIPV_ICA_ARBRE_ISOLE-SHP", "SIPV_ICA_ARBRE_ISOLE.shp")
+shp_raw    <- here("data", "raw", "SIPV_ICA_ARBRE_ISOLE.shp")
+
+shp_path <- if (file.exists(shp_bundle)) {
+  shp_bundle
+} else if (file.exists(shp_raw)) {
+  shp_raw
+} else {
+  message("Downloading tree inventory from SITG …")
+  tmp <- tempfile(fileext = ".zip")
+  download.file(SITG_TREE_URL, tmp, mode = "wb", quiet = TRUE)
+  utils::unzip(tmp, exdir = here("data", "raw"))
+  list.files(here("data", "raw"), pattern = "\\.shp$", recursive = TRUE, full.names = TRUE)[1]
+}
+
+message("Shapefile located: ", shp_path)
+
+# Verify the four canonical sibling files exist
+for (ext in c(".shp", ".shx", ".dbf", ".prj")) {
+  f <- sub("\\.shp$", ext, shp_path)
+  stopifnot("Shapefile sibling missing" = file.exists(f))
+}
+```
+
+```{r read-and-convert}
+trees_raw <- sf::st_read(shp_path, quiet = FALSE)
+
+gpkg_path <- here("data", "processed", "trees_geneva.gpkg")
+sf::st_write(trees_raw, gpkg_path, delete_dsn = TRUE, quiet = TRUE)
+message("GeoPackage written to: ", gpkg_path)
+```
+
+### Why four files become one
+
+A Shapefile is not a single file — it is a bundle of at least four siblings that must travel together. The `.shp` file holds the actual geometries (point coordinates in our case); `.shx` is a spatial index that allows software to jump directly to any record without scanning the entire geometry file; `.dbf` is a legacy dBASE-III table that stores the attribute columns; and `.prj` is a plain-text description of the coordinate reference system. Lose any one of them and the others become unusable.
+
+Converting immediately to a GeoPackage (`.gpkg`) solves all of these fragility points: one file, one format, UTF-8 character encoding by default, no 10-character field-name truncation (a Shapefile limitation inherited from the dBASE era), and a SQLite engine that can hold multiple layers in the same container. A GeoPackage is also the format recommended by the Open Geospatial Consortium for archiving and data exchange. For teaching and long-term reproducibility, it is almost always the right choice over the legacy Shapefile.
+
+```{r verify-01}
+stopifnot(
+  "GeoPackage not created"        = file.exists(gpkg_path),
+  "Feature count below 200 000"   = nrow(trees_raw) > 200000
+)
+message("Story 01 checks passed. Features: ", nrow(trees_raw))
+```
+
+With the data safely stored as a single GeoPackage, the next section examines its structure, completeness, and the accuracy limits we must keep in mind before drawing a single chart.
+
+---
