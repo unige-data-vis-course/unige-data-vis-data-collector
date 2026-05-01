@@ -163,21 +163,21 @@ dplyr::glimpse(trees)
 ```
 
 ```{r summary-table}
-# Tidy summary: type, non-NA count, sample value
-summary_tbl <- trees |>
-  sf::st_drop_geometry() |>
-  select(genre_espece, hauteur, diametre_tronc, diametre_couronne,
-         date_plantation, classe, vitalite, situation) |>
-  summarise(across(everything(), list(
-    type    = \(x) class(x)[1],
-    n_valid = \(x) sum(!is.na(x)),
-    pct_na  = \(x) round(100 * mean(is.na(x)), 1),
-    example = \(x) as.character(x[!is.na(x)][1])
-  ))) |>
-  pivot_longer(everything(),
-               names_to  = c("column", ".value"),
-               names_sep = "_(?=[^_]+$)") |>
-  arrange(pct_na |> as.numeric() |> desc())
+# Tidy summary: type, non-NA count, example value per column
+cols_of_interest <- c("genre_espece", "hauteur", "diametre_tronc",
+                      "diametre_couronne", "date_plantation",
+                      "classe", "vitalite", "situation")
+
+df_sub <- trees |> sf::st_drop_geometry() |> select(all_of(cols_of_interest))
+
+summary_tbl <- tibble(
+  column  = names(df_sub),
+  type    = sapply(df_sub, \(x) class(x)[1]),
+  n_valid = sapply(df_sub, \(x) sum(!is.na(x))),
+  pct_na  = sapply(df_sub, \(x) round(100 * mean(is.na(x)), 1)),
+  example = sapply(df_sub, \(x) as.character(x[!is.na(x)][1]))
+) |>
+  arrange(desc(pct_na))
 
 print(summary_tbl)
 ```
@@ -189,7 +189,7 @@ trees |>
   sf::st_drop_geometry() |>
   select(genre_espece, hauteur, diametre_tronc, diametre_couronne,
          date_plantation, classe, vitalite, situation, type_plantation) |>
-  naniar::vis_miss(warn_large_df = FALSE) +
+  naniar::vis_miss(warn_large_data = FALSE) +
   labs(
     title    = "Missingness across key columns",
     subtitle = "Each column-row cell is coloured if the value is absent",
