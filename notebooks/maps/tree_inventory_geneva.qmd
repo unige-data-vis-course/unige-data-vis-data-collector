@@ -112,3 +112,168 @@ message("Story 01 checks passed. Features: ", nrow(trees_raw))
 With the data safely stored as a single GeoPackage, the next section examines its structure, completeness, and the accuracy limits we must keep in mind before drawing a single chart.
 
 ---
+
+## Data Hygiene and the Honesty of Provenance {#story-02}
+
+Before drawing a single chart, we must interrogate the data itself. This section introduces the concept of **provenance**: where did these measurements come from, who made them, and how precise are they? The grammar-of-graphics concept at work is that *every aesthetic mapping is a claim* — and the strength of that claim depends entirely on the quality of the underlying data.
+
+```{r load-gpkg}
+trees_raw <- sf::st_read(here("data", "processed", "trees_geneva.gpkg"), quiet = TRUE)
+```
+
+```{r rename-standardise}
+# Rename fields to readable snake_case names that match user-story conventions.
+# Key mappings (SITG field → notebook name):
+#   NOM_COMPLE  → genre_espece  (species binomial, up to 50 chars)
+#   HAUTEUR_TO  → hauteur       (total height, metres)
+#   CIRCONFERE  → circonfere    (trunk circumference, cm; DBH = circonfere/pi)
+#   DIAMETRE_C  → diametre_couronne (crown diameter, metres)
+#   RAYON_COUR  → rayon_couronne (crown radius, metres)
+#   DATE_PLANT  → date_plantation_raw (string YYYYMMDD)
+trees <- trees_raw |>
+  rename_with(tolower) |>
+  rename(
+    genre_espece       = nom_comple,
+    hauteur            = hauteur_to,
+    hauteur_tronc      = hauteur_tr,
+    diametre_couronne  = diametre_c,
+    rayon_couronne     = rayon_cour,
+    date_plantation_raw = date_plant,
+    type_plantation    = type_plant,
+    stade              = stade_deve,
+    esperance_vie      = esperance_
+  ) |>
+  mutate(
+    # DBH (diameter at breast height) derived from circumference
+    diametre_tronc = circonfere / pi,
+    # Parse planting date: stored as YYYYMMDD string
+    date_plantation = suppressWarnings(
+      lubridate::ymd(date_plantation_raw)
+    ),
+    annee_plantation = lubridate::year(date_plantation)
+  )
+
+sf::st_write(trees, here("data", "processed", "trees_clean.gpkg"),
+             delete_dsn = TRUE, quiet = TRUE)
+message("Cleaned layer written: ", nrow(trees), " features")
+```
+
+```{r glimpse}
+dplyr::glimpse(trees)
+```
+
+```{r summary-table}
+# Tidy summary: type, non-NA count, sample value
+summary_tbl <- trees |>
+  sf::st_drop_geometry() |>
+  select(genre_espece, hauteur, diametre_tronc, diametre_couronne,
+         date_plantation, classe, vitalite, situation) |>
+  summarise(across(everything(), list(
+    type    = \(x) class(x)[1],
+    n_valid = \(x) sum(!is.na(x)),
+    pct_na  = \(x) round(100 * mean(is.na(x)), 1),
+    example = \(x) as.character(x[!is.na(x)][1])
+  ))) |>
+  pivot_longer(everything(),
+               names_to  = c("column", ".value"),
+               names_sep = "_(?=[^_]+$)") |>
+  arrange(pct_na |> as.numeric() |> desc())
+
+print(summary_tbl)
+```
+
+*What to look at:* The `pct_na` column immediately reveals which fields are sparse. `hauteur` and `diametre_couronne` have some missingness; `date_plantation` is missing for a substantial share of records — we will return to that story in section 8.
+
+```{r missingness-plot}
+trees |>
+  sf::st_drop_geometry() |>
+  select(genre_espece, hauteur, diametre_tronc, diametre_couronne,
+         date_plantation, classe, vitalite, situation, type_plantation) |>
+  naniar::vis_miss(warn_large_df = FALSE) +
+  labs(
+    title    = "Missingness across key columns",
+    subtitle = "Each column-row cell is coloured if the value is absent",
+    caption  = "Source: SITG, SIPV_ICA_ARBRE_ISOLE"
+  )
+```
+
+*What to look at:* Most geometric and biological fields are complete. The planting-date column stands out as systematically sparse — this is not random dropout but a structured gap driven by survey era, as the next paragraph explains.
+
+```{r numeric-histograms}
+p_haut <- ggplot(trees |> filter(!is.na(hauteur), hauteur > 0),
+                 aes(x = hauteur)) +
+  geom_histogram(binwidth = 2, fill = viridis::viridis(1, begin = 0.4),
+                 colour = "white") +
+  scale_x_continuous(labels = label_number(suffix = " m")) +
+  labs(title = "Tree height distribution", x = "Total height (m)", y = "Count",
+       caption = "Source: SITG, ICA")
+
+p_circ <- ggplot(trees |> filter(!is.na(circonfere), circonfere > 0),
+                 aes(x = circonfere)) +
+  geom_histogram(binwidth = 20, fill = viridis::viridis(1, begin = 0.6),
+                 colour = "white") +
+  scale_x_continuous(labels = label_number(suffix = " cm")) +
+  labs(title = "Trunk circumference distribution", x = "Circumference (cm)", y = "Count",
+       caption = "Source: SITG, ICA")
+
+p_cour <- ggplot(trees |> filter(!is.na(diametre_couronne), diametre_couronne > 0),
+                 aes(x = diametre_couronne)) +
+  geom_histogram(binwidth = 1, fill = viridis::viridis(1, begin = 0.8),
+                 colour = "white") +
+  scale_x_continuous(labels = label_number(suffix = " m")) +
+  labs(title = "Crown diameter distribution", x = "Crown diameter (m)", y = "Count",
+       caption = "Source: SITG, ICA")
+
+p_haut / p_circ / p_cour
+```
+
+*What to look at:* All three distributions are right-skewed. Most trees are small and young; a long right tail of tall or wide-crowned specimens drives the mean far above the median. This asymmetry will motivate the log-scale comparison in section 3.
+
+### Positional accuracy: two generations of survey
+
+::: callout-important
+**Positional accuracy caveat.** The ICA dataset contains trees surveyed across several decades. Records from the 1976 baseline inventory carry a positional accuracy of approximately 25 m; records from modern digital surveys (post-2000) are accurate to approximately 1 m. This means any map-based analysis that treats all points equally risks misleading clusters and gaps, particularly in areas densely surveyed in 1976.
+:::
+
+```{r survey-decade-bar}
+trees |>
+  sf::st_drop_geometry() |>
+  mutate(decade_obs = floor(as.numeric(substr(date_obser, 1, 4)) / 10) * 10) |>
+  filter(!is.na(decade_obs)) |>
+  count(decade_obs) |>
+  ggplot(aes(x = factor(decade_obs), y = n)) +
+  geom_col(fill = viridis::viridis(1, begin = 0.5)) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(
+    title    = "Records by observation decade",
+    subtitle = "Proxy for when each tree was surveyed (not when planted)",
+    x        = "Observation decade",
+    y        = "Number of records",
+    caption  = "Source: SITG, ICA — date_obser field"
+  )
+```
+
+*What to look at:* The overwhelming majority of observations cluster in the 2020s, reflecting the ongoing SEVE digital survey programme. A smaller cohort of earlier records represents trees that pre-date the modern system and may carry the higher 25 m positional uncertainty.
+
+::: callout-note
+**What this means for our charts**
+
+1. **Density maps** (section 7) will show sharper spatial patterns for recently surveyed trees; older records may appear at slightly wrong positions, creating artefacts.
+2. **Species comparisons** (section 4) may inadvertently reflect which species were surveyed recently rather than which are truly most common.
+3. **Planting-date timelines** (section 8) must be interpreted alongside their missingness rate — the apparent dip in plantings before 2000 partly reflects records where the date was never digitised.
+:::
+
+```{r verify-02}
+trees_clean <- sf::st_read(here("data", "processed", "trees_clean.gpkg"), quiet = TRUE)
+stopifnot(
+  "trees_clean.gpkg missing"           = file.exists(here("data", "processed", "trees_clean.gpkg")),
+  "hauteur column absent"              = "hauteur" %in% names(trees_clean),
+  "diametre_tronc column absent"       = "diametre_tronc" %in% names(trees_clean),
+  "genre_espece column absent"         = "genre_espece" %in% names(trees_clean)
+)
+message("Story 02 checks passed.")
+```
+
+Now that we know what the data can and cannot tell us, the next section builds visualisations step by step — starting with the simplest possible chart and adding one layer at a time.
+
+---
