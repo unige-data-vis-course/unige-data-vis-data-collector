@@ -406,3 +406,143 @@ message("Story 03 checks passed.")
 We have now built and varied a univariate chart layer by layer. The next section scales up to a categorical variable with 200+ levels, which forces us to choose an encoding that matches the perceptual task.
 
 ---
+
+## Categorical Encoding for High-Cardinality Data {#story-04}
+
+Facing 1 500+ distinct species names, our first instinct might be to plot them all. This section demonstrates why that fails and what to do instead, by comparing three encodings of the same "top species" summary. The **learning objective** is to match chart type to perceptual task. The **grammar concept** is that aesthetic mappings carry a perceptual cost: position is the most accurate channel, colour the least when used for more than ~8 categories.
+
+```{r s04-load}
+trees <- sf::st_read(here("data", "processed", "trees_clean.gpkg"), quiet = TRUE)
+
+top20 <- trees |>
+  sf::st_drop_geometry() |>
+  count(genre_espece, sort = TRUE) |>
+  slice_head(n = 20)
+
+top20
+```
+
+### Ordered bar chart
+
+```{r s04-bar}
+p_bar <- top20 |>
+  mutate(genre_espece = fct_reorder(genre_espece, n)) |>
+  ggplot(aes(x = n, y = genre_espece)) +
+  geom_col(fill = viridis::viridis(1, begin = 0.5)) +
+  scale_x_continuous(labels = label_comma()) +
+  labs(
+    title    = "Top 20 species by tree count",
+    subtitle = "Ordered bar chart — position encodes rank precisely",
+    x        = "Number of trees",
+    y        = NULL,
+    caption  = "Source: SITG, ICA"
+  )
+p_bar
+```
+
+### Lollipop chart
+
+```{r s04-lollipop}
+p_lollipop <- top20 |>
+  mutate(genre_espece = fct_reorder(genre_espece, n)) |>
+  ggplot(aes(x = n, y = genre_espece)) +
+  geom_segment(aes(x = 0, xend = n, yend = genre_espece),
+               colour = viridis::viridis(1, begin = 0.4)) +
+  geom_point(colour = viridis::viridis(1, begin = 0.6), size = 3) +
+  scale_x_continuous(labels = label_comma()) +
+  labs(
+    title    = "Top 20 species — lollipop variant",
+    subtitle = "Reduced ink; easier to read exact values at the dot",
+    x        = "Number of trees",
+    y        = NULL,
+    caption  = "Source: SITG, ICA"
+  )
+p_lollipop
+```
+
+### Treemap of the full species list
+
+```{r s04-treemap, fig.height=8}
+all_species <- trees |>
+  sf::st_drop_geometry() |>
+  count(genre_espece, sort = TRUE) |>
+  mutate(
+    label = if_else(n > 2000, genre_espece, "")
+  )
+
+p_treemap <- ggplot(all_species, aes(area = n, fill = n, label = label)) +
+  treemapify::geom_treemap() +
+  treemapify::geom_treemap_text(
+    colour = "white", place = "centre", reflow = TRUE, size = 9
+  ) +
+  scale_fill_viridis_c(option = "D", labels = label_comma(),
+                       name = "Trees") +
+  labs(
+    title    = "All species — area encodes abundance",
+    subtitle = "Treemap of the full list; only species with > 2 000 trees labelled",
+    caption  = "Source: SITG, ICA"
+  )
+p_treemap
+```
+
+### Three charts side by side
+
+```{r s04-patchwork, fig.height=10}
+(p_bar | p_lollipop) / p_treemap +
+  plot_annotation(
+    title   = "Three encodings of species abundance",
+    caption = "Source: SITG, ICA"
+  )
+```
+
+*What to look at:* The ordered bar and lollipop are essentially equivalent for ranking — both exploit position on a common scale, which Cleveland and McGill (1984) showed is the most accurately decoded visual channel. The treemap sacrifices precise rank reading in exchange for showing the entire species distribution at once, making the long tail of rare species visible. Use the bar/lollipop when the question is "which species ranks 4th?"; use the treemap when the question is "how much of the canopy do the top 5 species control?"
+
+### The perceptual argument: Cleveland and McGill (1984)
+
+Cleveland and McGill ranked human ability to decode visual encodings from most to least accurate:
+
+1. Position on a common scale (bar, lollipop)
+2. Position on identical non-aligned scales (faceted dots)
+3. Length (bar chart without a shared baseline)
+4. Angle / slope
+5. Area (treemap, bubble)
+6. Volume
+7. Colour saturation / hue
+
+For a ranking task, position wins. For part-of-whole with a long tail, area (treemap) communicates the structural imbalance that a bar chart of 1 500 species cannot.
+
+### Counter-example: the pie chart
+
+```{r s04-pie}
+top20 |>
+  mutate(genre_espece = fct_reorder(genre_espece, n)) |>
+  ggplot(aes(x = "", y = n, fill = genre_espece)) +
+  geom_col(width = 1, colour = "white") +
+  coord_polar(theta = "y") +
+  scale_fill_manual(
+    values = colorRampPalette(viridis::viridis(8))(20),
+    guide  = guide_legend(ncol = 2)
+  ) +
+  labs(
+    title    = "Top 20 species — pie chart (do not use for ranking)",
+    subtitle = "Angle and arc length are decoded far less accurately than position",
+    fill     = "Species",
+    caption  = "Source: SITG, ICA"
+  ) +
+  theme(axis.text = element_blank(), axis.title = element_blank(),
+        panel.grid = element_blank())
+```
+
+*What to look at:* Can you immediately tell which species ranks 5th vs 7th? Almost certainly not — the slices share similar angles and 20 colours exceed human colour-discrimination limits. The pie chart fails the ranking task completely. It is shown here as a deliberate counter-example, not a recommendation.
+
+```{r verify-04}
+stopifnot(
+  "top20 does not have 20 rows" = nrow(top20) == 20,
+  "top20 not sorted"            = top20$n[1] >= top20$n[20]
+)
+message("Story 04 checks passed.")
+```
+
+Ordering and position are our most powerful tools for categorical data. The next section moves from one variable to two, introducing the overplotting problem and a biologically motivated model.
+
+---
