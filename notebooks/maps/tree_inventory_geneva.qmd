@@ -898,3 +898,137 @@ message("Story 07 checks passed.")
 Understanding the spatial distribution of trees is only half the picture. The next section asks a different question: when were they planted — and how much of that record is missing?
 
 ---
+
+## Time, Cohorts, and the Chart of What Is Missing {#story-08}
+
+Planting-date data is tempting to read as historical narrative: "Geneva planted most trees in the 1980s." But before accepting that story, we must ask: is that pattern real, or does it reflect when records were digitised rather than when trees were actually planted? The **learning objective** is to surface missing data before interpreting temporal trends. The **grammar concept** is that the most honest chart is sometimes the one that shows what we do *not* know.
+
+```{r s08-load}
+trees <- sf::st_read(here("data", "processed", "trees_clean.gpkg"), quiet = TRUE)
+
+dated <- trees |>
+  sf::st_drop_geometry() |>
+  mutate(
+    decade_plant = if_else(
+      !is.na(annee_plantation),
+      as.integer(floor(annee_plantation / 10) * 10),
+      NA_integer_
+    ),
+    hauteur_bucket = cut(
+      hauteur,
+      breaks = c(0, 5, 10, 20, 40, Inf),
+      labels = c("0–5 m", "5–10 m", "10–20 m", "20–40 m", ">40 m"),
+      right  = FALSE
+    )
+  )
+```
+
+### What we know: histogram of planting decade
+
+```{r s08-histogram}
+dated |>
+  filter(!is.na(decade_plant), decade_plant >= 1900, decade_plant <= 2030) |>
+  count(decade_plant) |>
+  ggplot(aes(x = decade_plant, y = n)) +
+  geom_col(fill = viridis::viridis(1, begin = 0.5), width = 9) +
+  scale_x_continuous(breaks = seq(1900, 2030, 20)) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(
+    title    = "Apparent planting history — trees with a recorded date",
+    subtitle = "Based only on the 30 % of records that have date_plantation",
+    x        = "Decade of planting",
+    y        = "Trees planted",
+    caption  = "Source: SITG, ICA"
+  )
+```
+
+### Cumulative plantings over time
+
+```{r s08-cumulative}
+dated |>
+  filter(!is.na(annee_plantation), annee_plantation >= 1900,
+         annee_plantation <= 2030) |>
+  arrange(annee_plantation) |>
+  mutate(cumulative = row_number()) |>
+  ggplot(aes(x = annee_plantation, y = cumulative)) +
+  geom_step(colour = viridis::viridis(1, begin = 0.4), linewidth = 0.8) +
+  scale_x_continuous(breaks = seq(1900, 2030, 10)) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(
+    title    = "Cumulative plantings — for trees with a known date",
+    subtitle = "Each step represents one recorded planting event",
+    x        = "Year",
+    y        = "Cumulative trees",
+    caption  = "Source: SITG, ICA"
+  )
+```
+
+### What we do NOT know: missingness by height bucket
+
+```{r s08-missingness-chart}
+miss_by_height <- dated |>
+  filter(!is.na(hauteur_bucket)) |>
+  group_by(hauteur_bucket) |>
+  summarise(
+    n_total   = n(),
+    n_missing = sum(is.na(decade_plant)),
+    pct_miss  = 100 * n_missing / n_total
+  ) |>
+  arrange(desc(pct_miss))
+
+miss_by_height |>
+  mutate(hauteur_bucket = fct_reorder(hauteur_bucket, pct_miss)) |>
+  ggplot(aes(x = pct_miss, y = hauteur_bucket)) +
+  geom_col(fill = viridis::viridis(1, begin = 0.7)) +
+  geom_text(aes(label = paste0(round(pct_miss, 1), " %")),
+            hjust = -0.1, size = 3.5) +
+  scale_x_continuous(limits = c(0, 105),
+                     labels = label_number(suffix = " %")) +
+  labs(
+    title    = "Planting date is missing most often for tall trees",
+    subtitle = "Tall trees are old; old records predate digital survey — missing is not random",
+    x        = "Percentage with no planting date",
+    y        = "Tree height bucket",
+    caption  = "Source: SITG, ICA"
+  )
+```
+
+*What to look at:* The ordering shows that tall trees — which are necessarily the oldest — have the highest rates of missing planting dates. This is structural missingness, not random dropout. The histogram in the first chart should be read as "trees planted recently that we also know about," not as "trees planted."
+
+### Side by side: what we know vs what we do not know
+
+```{r s08-side-by-side, fig.height=5}
+p_know <- dated |>
+  filter(!is.na(decade_plant), decade_plant >= 1900, decade_plant <= 2030) |>
+  count(decade_plant) |>
+  ggplot(aes(x = decade_plant, y = n)) +
+  geom_col(fill = viridis::viridis(1, begin = 0.5), width = 9) +
+  scale_x_continuous(breaks = seq(1900, 2030, 20)) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(title = "What we know", subtitle = "Trees with a recorded planting decade",
+       x = "Decade", y = "Trees", caption = "Source: SITG, ICA")
+
+p_miss <- miss_by_height |>
+  mutate(hauteur_bucket = fct_reorder(hauteur_bucket, pct_miss)) |>
+  ggplot(aes(x = pct_miss, y = hauteur_bucket)) +
+  geom_col(fill = "#c0392b") +
+  scale_x_continuous(labels = label_number(suffix = " %")) +
+  labs(title = "What we do not know", subtitle = "Missing date rate rises with tree height",
+       x = "% missing", y = NULL, caption = "Source: SITG, ICA")
+
+p_know | p_miss
+```
+
+The chart on the right is more honest than the chart on the left. The planting-decade histogram contains only the trees for which someone recorded a date — a self-selected, recency-biased sample. The missingness chart shows that the selection criterion is strongly correlated with age: the oldest trees (tallest) are the ones most likely to be absent. Any trend visible in the histogram therefore confounds "what was planted when" with "what got recorded when." A responsible analysis would present both charts together, as we have done here, before drawing conclusions about Geneva's planting history.
+
+```{r verify-08}
+stopifnot(
+  "miss_by_height is empty" = nrow(miss_by_height) > 0,
+  "no missing date rows"    = any(is.na(dated$decade_plant))
+)
+message("Story 08 checks passed.")
+```
+
+With temporal patterns and their limits understood, the next section combines tree data, commune boundaries, and external population statistics into a single synthesis chart.
+
+---
