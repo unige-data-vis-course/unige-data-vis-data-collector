@@ -815,3 +815,86 @@ message("Story 06 checks passed. Communes: ", nrow(communes))
 The map reveals where the trees are, but not how densely they cluster or where gaps exist. The next section builds three views of the same data that answer those distributional questions.
 
 ---
+
+## Density Mapping and the Detail/Pattern Trade-off {#story-07}
+
+One spatial dataset can answer radically different questions depending on how it is rendered. This section produces three maps of identical data side by side, each exploiting a different one of Bertin's visual variables. The **learning objective** is to select a spatial representation that matches the question. The **grammar concept** is that the choice between `geom_sf`, `stat_binhex`, and `stat_density_2d_filled` is the same kind of choice as between `geom_point`, `geom_histogram`, and `geom_density` — each answers a different question about the distribution.
+
+```{r s07-load}
+trees     <- sf::st_read(here("data", "processed", "trees_clean.gpkg"), quiet = TRUE)
+communes  <- sf::st_read(here("data", "processed", "communes_geneva.gpkg"), quiet = TRUE)
+
+# Extract projected coordinates for stat_binhex / stat_density_2d
+trees_xy <- trees |>
+  sf::st_coordinates() |>
+  as_tibble() |>
+  rename(easting = X, northing = Y)
+
+bbox <- sf::st_bbox(communes)
+```
+
+```{r s07-three-maps, fig.width=14, fig.height=7}
+# Map 1 — raw points: Bertin visual variable = POSITION
+p_dots <- ggplot() +
+  geom_sf(data = communes, fill = "#f5f0e8", colour = "#bbbbbb",
+          linewidth = 0.2) +
+  geom_sf(data = trees, alpha = 0.04, size = 0.06,
+          colour = viridis::viridis(1, begin = 0.45)) +
+  coord_sf(xlim = c(bbox["xmin"], bbox["xmax"]),
+           ylim = c(bbox["ymin"], bbox["ymax"])) +
+  labs(title = "Raw dots", subtitle = "Bertin: position",
+       caption = "Source: SITG, ICA") +
+  theme(axis.text = element_blank(), axis.ticks = element_blank())
+
+# Map 2 — hex bins: Bertin visual variable = VALUE (colour lightness)
+p_hex <- ggplot(trees_xy, aes(x = easting, y = northing)) +
+  geom_sf(data = communes, fill = "#f5f0e8", colour = "#bbbbbb",
+          linewidth = 0.2, inherit.aes = FALSE) +
+  stat_binhex(bins = 80) +
+  scale_fill_viridis_c(option = "D", labels = label_comma(),
+                       name = "Trees") +
+  coord_sf(xlim = c(bbox["xmin"], bbox["xmax"]),
+           ylim = c(bbox["ymin"], bbox["ymax"]),
+           crs = sf::st_crs(communes)) +
+  labs(title = "Hex bins — count per cell",
+       subtitle = "Bertin: value (lightness)",
+       caption = "Source: SITG, ICA") +
+  theme(axis.text = element_blank(), axis.ticks = element_blank())
+
+# Map 3 — kernel density: Bertin visual variable = VALUE (continuous)
+p_kde <- ggplot(trees_xy, aes(x = easting, y = northing)) +
+  geom_sf(data = communes, fill = NA, colour = "#888888",
+          linewidth = 0.3, inherit.aes = FALSE) +
+  stat_density_2d_filled(bins = 9, alpha = 0.85) +
+  scale_fill_viridis_d(option = "D", guide = "none") +
+  coord_sf(xlim = c(bbox["xmin"], bbox["xmax"]),
+           ylim = c(bbox["ymin"], bbox["ymax"]),
+           crs = sf::st_crs(communes)) +
+  labs(title = "Kernel density surface",
+       subtitle = "Bertin: value (continuous gradient)",
+       caption = "Source: SITG, ICA") +
+  theme(axis.text = element_blank(), axis.ticks = element_blank())
+
+p_dots | p_hex | p_kde
+```
+
+*What to look at:* The dot map answers "where is this specific tree?" — you could in principle locate an individual record. The hex map answers "how many trees per unit area?" — it supports statements like "the city centre has five times the density of the rural west." The kernel density map answers "where is the canopy mass concentrated?" — it smooths over the discretisation of individual trees to reveal regional gradients.
+
+### Which question does each map answer?
+
+| Map | Question answered | Bertin variable exploited |
+|---|---|---|
+| Raw dots | Location of an individual tree | Position |
+| Hex bins | Count per spatial cell; density comparisons | Value (stepped lightness) |
+| Kernel density | Continuous probability surface of canopy mass | Value (smooth gradient) |
+
+Jacques Bertin (1967) proposed that all visual encodings reduce to a small vocabulary: position, size, value (lightness), colour (hue), orientation, shape, and texture. Maps are not exempt — every cartographic choice borrows from this vocabulary, and the choice of variable determines what questions the reader can accurately answer.
+
+```{r verify-07}
+stopifnot("trees_xy has wrong columns" = all(c("easting", "northing") %in% names(trees_xy)))
+message("Story 07 checks passed.")
+```
+
+Understanding the spatial distribution of trees is only half the picture. The next section asks a different question: when were they planted — and how much of that record is missing?
+
+---
