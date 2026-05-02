@@ -708,3 +708,110 @@ message("Story 05 checks passed.")
 With two continuous variables explored and a biological model in hand, the next section adds a third dimension — geography — by projecting the trees onto the map of Geneva.
 
 ---
+
+## First Spatial Visualisation with `sf` {#story-06}
+
+A map is just a chart where x is longitude, y is latitude, and the geometry column carries the shapes. This section introduces `geom_sf()` and the coordinate reference system (CRS), demonstrating that CRS is a design choice that affects every spatial calculation. The **learning objective** is to build a map using the same grammar learned in the previous sections. The **grammar concept** is that `coord_sf()` is simply a specialised coordinate system — the same role `coord_cartesian()` plays for non-spatial charts.
+
+```{r s06-load}
+trees <- sf::st_read(here("data", "processed", "trees_clean.gpkg"), quiet = TRUE)
+```
+
+```{r s06-crs}
+sf::st_crs(trees)
+```
+
+The output above shows EPSG:2056, the Swiss national grid CH1903+/LV95. Coordinates are in metres east and north from a reference point near Bern — not degrees of latitude/longitude. This means distances computed directly from coordinates (e.g., `st_distance()`) are correct in metres without any projection step.
+
+### Download commune boundaries
+
+```{r s06-communes}
+communes_path <- here("data", "processed", "communes_geneva.gpkg")
+
+if (!file.exists(communes_path)) {
+  # Try SITG first; fall back to GADM if the URL has changed
+  communes_raw <- tryCatch({
+    tmp <- tempfile(fileext = ".zip")
+    download.file(SITG_COMMUNE_URL, tmp, mode = "wb", quiet = TRUE)
+    utils::unzip(tmp, exdir = here("data", "raw", "communes"))
+    shp <- list.files(here("data", "raw", "communes"), "\\.shp$",
+                      recursive = TRUE, full.names = TRUE)[1]
+    sf::st_read(shp, quiet = TRUE)
+  }, error = function(e) {
+    message("SITG commune download failed; falling back to GADM …")
+    che <- geodata::gadm(country = "CHE", level = 3,
+                         path = here("data", "raw")) |>
+      sf::st_as_sf()
+    che[grepl("Gen", che$NAME_1, ignore.case = TRUE), ]
+  })
+
+  communes <- communes_raw |>
+    sf::st_transform(2056)
+
+  sf::st_write(communes, communes_path, delete_dsn = TRUE, quiet = TRUE)
+  message("Communes written: ", nrow(communes), " features")
+} else {
+  communes <- sf::st_read(communes_path, quiet = TRUE)
+  message("Communes loaded from cache: ", nrow(communes), " features")
+}
+```
+
+### Static map: communes + tree points
+
+```{r s06-static-map, fig.height=8}
+bbox <- sf::st_bbox(communes)
+
+ggplot() +
+  geom_sf(data = communes,
+          fill = "#f5f0e8", colour = "#aaa9a0", linewidth = 0.3) +
+  geom_sf(data = trees,
+          alpha = 0.05, size = 0.05,
+          colour = viridis::viridis(1, begin = 0.4)) +
+  coord_sf(xlim = c(bbox["xmin"], bbox["xmax"]),
+           ylim = c(bbox["ymin"], bbox["ymax"])) +
+  labs(
+    title    = "238 882 isolated trees across the canton of Geneva",
+    subtitle = "EPSG:2056 (CH1903+/LV95) — coordinates in metres",
+    caption  = "Source: SITG, ICA — SIPV_ICA_ARBRE_ISOLE"
+  )
+```
+
+*What to look at:* The city of Geneva (bottom-right cluster) and the lakeside communes (arc along the northern shore) concentrate the densest canopy. The rural Champagne and Mandement regions in the west are sparser — reflecting both lower tree density and lower survey completion.
+
+### Reprojection to WGS 84 and a web-tile background
+
+```{r s06-web-map, fig.height=8}
+trees_wgs    <- sf::st_transform(trees,    4326)
+communes_wgs <- sf::st_transform(communes, 4326)
+bbox_wgs     <- sf::st_bbox(communes_wgs)
+
+ggplot() +
+  ggspatial::annotation_map_tile(type = "cartolight", zoom = 11,
+                                 quiet = TRUE) +
+  geom_sf(data = communes_wgs,
+          fill = NA, colour = "#333333", linewidth = 0.4) +
+  geom_sf(data = trees_wgs,
+          alpha = 0.04, size = 0.06,
+          colour = viridis::viridis(1, begin = 0.5)) +
+  coord_sf(xlim = c(bbox_wgs["xmin"], bbox_wgs["xmax"]),
+           ylim = c(bbox_wgs["ymin"], bbox_wgs["ymax"])) +
+  labs(
+    title    = "Same data over a web-tile background (WGS 84 / EPSG:4326)",
+    subtitle = "Reprojected to degrees for compatibility with tile servers",
+    caption  = "Tiles: CartoDB; tree data: SITG, ICA"
+  )
+```
+
+The two maps show identical data, but serve different purposes. The CH1903+/LV95 version is metric: distances, areas, and spatial joins are accurate without further transformation. The WGS 84 version provides geographic context — roads, lake, built-up areas — at the cost of a re-projection step. Choose EPSG:2056 for analysis; switch to EPSG:4326 only when a tile server or web API demands it.
+
+```{r verify-06}
+stopifnot(
+  "communes not loaded"         = exists("communes") && nrow(communes) > 0,
+  "trees CRS not 2056"          = sf::st_crs(trees)$epsg == 2056
+)
+message("Story 06 checks passed. Communes: ", nrow(communes))
+```
+
+The map reveals where the trees are, but not how densely they cluster or where gaps exist. The next section builds three views of the same data that answer those distributional questions.
+
+---
