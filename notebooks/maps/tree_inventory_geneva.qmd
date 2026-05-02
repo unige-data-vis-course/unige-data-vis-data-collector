@@ -546,3 +546,165 @@ message("Story 04 checks passed.")
 Ordering and position are our most powerful tools for categorical data. The next section moves from one variable to two, introducing the overplotting problem and a biologically motivated model.
 
 ---
+
+## Bivariate Relationships, Overplotting, and an Allometric Law {#story-05}
+
+Mapping two continuous variables to x and y is conceptually simple, but 238 000 overlapping points make the naive scatter plot unreadable. This section iterates through four remedies before fitting a biologically meaningful model. The **learning objective** is to recognise and resolve overplotting. The **grammar concept** is that `stat_*` layers transform data before drawing — `stat_binhex` and `stat_density_2d` each bin the plane differently, answering different questions about the joint distribution.
+
+```{r s05-load}
+trees <- sf::st_read(here("data", "processed", "trees_clean.gpkg"), quiet = TRUE)
+
+biv <- trees |>
+  sf::st_drop_geometry() |>
+  filter(
+    !is.na(hauteur), hauteur > 0, hauteur < 60,
+    !is.na(diametre_tronc), diametre_tronc > 0, diametre_tronc < 300
+  )
+```
+
+**Step 1 — raw scatter: the overplotting problem.**
+
+```{r s05-scatter}
+ggplot(biv, aes(x = diametre_tronc, y = hauteur)) +
+  geom_point(size = 0.3) +
+  scale_x_continuous(labels = label_number(suffix = " cm")) +
+  scale_y_continuous(labels = label_number(suffix = " m")) +
+  labs(
+    title    = "DBH vs height — overplotting hides all structure",
+    subtitle = paste0(comma(nrow(biv)), " points fully occlude each other"),
+    x        = "Trunk diameter (cm, derived from circumference / π)",
+    y        = "Total height (m)",
+    caption  = "Source: SITG, ICA"
+  )
+```
+
+*What to look at:* The chart is a near-solid rectangle. It confirms a positive relationship but reveals nothing about the density of the cloud.
+
+**Step 2 — transparency (`alpha = 0.02`).**
+
+```{r s05-alpha}
+ggplot(biv, aes(x = diametre_tronc, y = hauteur)) +
+  geom_point(size = 0.2, alpha = 0.02) +
+  scale_x_continuous(labels = label_number(suffix = " cm")) +
+  scale_y_continuous(labels = label_number(suffix = " m")) +
+  labs(
+    title    = "Alpha = 0.02 begins to reveal the dense core",
+    subtitle = "50 overlapping points reach full opacity",
+    x        = "Trunk diameter (cm)", y = "Total height (m)",
+    caption  = "Source: SITG, ICA"
+  )
+```
+
+**Step 3 — hexagonal bins.**
+
+```{r s05-hex}
+ggplot(biv, aes(x = diametre_tronc, y = hauteur)) +
+  geom_hex(bins = 60) +
+  scale_fill_viridis_c(option = "D", labels = label_comma(),
+                       name = "Trees\nper cell") +
+  scale_x_continuous(labels = label_number(suffix = " cm")) +
+  scale_y_continuous(labels = label_number(suffix = " m")) +
+  labs(
+    title    = "Hexagonal bins: 60 × 60 grid, colour = count",
+    subtitle = "Most trees are small; tall wide-crowned specimens are rare outliers",
+    x        = "Trunk diameter (cm)", y = "Total height (m)",
+    caption  = "Source: SITG, ICA"
+  )
+```
+
+**Step 4 — 2-D kernel density.**
+
+```{r s05-density2d}
+ggplot(biv, aes(x = diametre_tronc, y = hauteur)) +
+  geom_density_2d_filled(bins = 10) +
+  scale_fill_viridis_d(option = "D", guide = "none") +
+  scale_x_continuous(labels = label_number(suffix = " cm")) +
+  scale_y_continuous(labels = label_number(suffix = " m")) +
+  labs(
+    title    = "2-D kernel density — contours of equal tree density",
+    subtitle = "Gradient replaces counts with a continuous probability surface",
+    x        = "Trunk diameter (cm)", y = "Total height (m)",
+    caption  = "Source: SITG, ICA"
+  )
+```
+
+*What to look at:* The innermost contour captures ~80 % of the data. The widening of contours toward larger diameters reflects genuine biological spread: older trees vary more in height for a given girth, influenced by species, site conditions, and management.
+
+### The allometric scaling law
+
+In forest ecology, tree height H and diameter D follow H = a · D^b, linearised as log(H) = log(a) + b · log(D). On a log-x axis this becomes a straight line, which is exactly what `geom_smooth(formula = y ~ log(x))` fits. The law emerges from biomechanical constraints: a trunk must not buckle under its own weight, so height scales as the 2/3 power of diameter (Greenhill 1881).
+
+```{r s05-smooth}
+ggplot(biv |> slice_sample(n = 30000), aes(x = diametre_tronc, y = hauteur)) +
+  geom_hex(bins = 50, alpha = 0.8) +
+  geom_smooth(method = "lm", formula = y ~ log(x),
+              colour = "firebrick", linewidth = 1.2, se = TRUE) +
+  scale_fill_viridis_c(option = "D", guide = "none") +
+  scale_x_log10(labels = label_number(suffix = " cm")) +
+  scale_y_continuous(labels = label_number(suffix = " m")) +
+  labs(
+    title    = "Height grows as a power function of trunk diameter",
+    subtitle = "Allometric scaling H = a·DBH^b; log₁₀ x-axis linearises the curve",
+    x        = "Trunk diameter (cm, log scale)", y = "Total height (m)",
+    caption  = "Source: SITG, ICA"
+  )
+```
+
+*What to look at:* The red trend line follows the data well across two log-decades. The confidence ribbon is narrow owing to the large sample. Scatter around the line is real biological variation — species and management shift the intercept without changing the slope much.
+
+### Per-species facets for the six most abundant species
+
+```{r s05-facets, fig.height=8}
+top6 <- trees |>
+  sf::st_drop_geometry() |>
+  count(genre_espece, sort = TRUE) |>
+  slice_head(n = 6) |>
+  pull(genre_espece)
+
+biv6 <- biv |> filter(genre_espece %in% top6)
+
+ggplot(biv6, aes(x = diametre_tronc, y = hauteur)) +
+  geom_hex(bins = 30) +
+  geom_smooth(method = "lm", formula = y ~ log(x),
+              colour = "firebrick", linewidth = 0.9, se = FALSE) +
+  scale_fill_viridis_c(option = "D", guide = "none") +
+  scale_x_log10(labels = label_number(suffix = " cm")) +
+  scale_y_continuous(labels = label_number(suffix = " m")) +
+  facet_wrap(~ genre_espece, ncol = 3, scales = "fixed") +
+  labs(
+    title    = "Allometric relationship varies across the six most abundant species",
+    subtitle = "Fixed y axis preserves absolute height comparisons across panels",
+    x        = "Trunk diameter (cm, log scale)", y = "Total height (m)",
+    caption  = "Source: SITG, ICA"
+  )
+```
+
+*What to look at:* The y axis is held fixed (`scales = "fixed"`) so absolute heights are comparable. Freeing it would make every species look equally tall — a distortion when crown height ranges genuinely differ by a factor of two across species.
+
+### Per-species slope coefficients
+
+```{r s05-slopes}
+slope_tbl <- biv6 |>
+  group_by(genre_espece) |>
+  group_modify(~ broom::tidy(lm(hauteur ~ log(diametre_tronc), data = .x))) |>
+  filter(term == "log(diametre_tronc)") |>
+  select(genre_espece, estimate, std.error, p.value) |>
+  mutate(across(where(is.numeric), \(x) round(x, 3))) |>
+  arrange(desc(estimate))
+
+slope_tbl
+```
+
+*What to look at:* Higher `estimate` values indicate species that gain more height per tenfold increase in girth — typically shade-avoiders investing in rapid vertical growth.
+
+```{r verify-05}
+stopifnot(
+  "biv6 is empty"        = nrow(biv6) > 1000,
+  "slope_tbl incomplete" = nrow(slope_tbl) == 6
+)
+message("Story 05 checks passed.")
+```
+
+With two continuous variables explored and a biological model in hand, the next section adds a third dimension — geography — by projecting the trees onto the map of Geneva.
+
+---
