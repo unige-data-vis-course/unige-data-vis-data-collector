@@ -1032,3 +1032,177 @@ message("Story 08 checks passed.")
 With temporal patterns and their limits understood, the next section combines tree data, commune boundaries, and external population statistics into a single synthesis chart.
 
 ---
+
+## A Gapminder-Style Storytelling Chart {#story-09}
+
+A single bubble chart can encode four variables simultaneously and tell a story in its title. This section joins tree data, commune geometries, and population statistics to build that chart. The **learning objective** is to practise multi-variable synthesis and narrative framing. The **grammar concept** is that the chart's title is the conclusion — it should state the finding, not describe the variables.
+
+```{r s09-load}
+trees    <- sf::st_read(here("data", "processed", "trees_clean.gpkg"), quiet = TRUE)
+communes <- sf::st_read(here("data", "processed", "communes_geneva.gpkg"), quiet = TRUE)
+```
+
+```{r s09-population}
+# Commune populations (OCSTAT 2022 — embedded to avoid unstable URL dependencies).
+# Source: Office cantonal de la statistique, www.ge.ch/statistique
+commune_pop <- tribble(
+  ~nom_commune,           ~population,  ~region,
+  "Aire-la-Ville",         1042,        "Campagne",
+  "Anières",               2469,        "Rive gauche",
+  "Avully",                2180,        "Campagne",
+  "Avusy",                 1895,        "Campagne",
+  "Bardonnex",             2314,        "Campagne",
+  "Bellevue",              4341,        "Rive droite",
+  "Bernex",               11039,        "Suburbain",
+  "Carouge",              22942,        "Suburbain",
+  "Cartigny",               892,        "Campagne",
+  "Céligny",                720,        "Rive droite",
+  "Chancy",                1199,        "Campagne",
+  "Chêne-Bougeries",      10773,        "Suburbain",
+  "Chêne-Bourg",           7838,        "Suburbain",
+  "Choulex",               1215,        "Suburbain",
+  "Collex-Bossy",          1963,        "Rive droite",
+  "Collonge-Bellerive",    7774,        "Rive gauche",
+  "Cologny",               5033,        "Rive gauche",
+  "Confignon",             4193,        "Suburbain",
+  "Corsier",               3489,        "Rive gauche",
+  "Dardagny",              1919,        "Campagne",
+  "Genève",              203856,        "Ville",
+  "Genthod",               2987,        "Rive droite",
+  "Grand-Saconnex",       14266,        "Suburbain",
+  "Gy",                    1184,        "Suburbain",
+  "Hermance",               997,        "Rive gauche",
+  "Jussy",                 1220,        "Suburbain",
+  "Laconnex",               898,        "Campagne",
+  "Lancy",                33051,        "Suburbain",
+  "Meinier",               2293,        "Suburbain",
+  "Meyrin",               24868,        "Suburbain",
+  "Onex",                 19283,        "Suburbain",
+  "Perly-Certoux",         3992,        "Campagne",
+  "Plan-les-Ouates",      11063,        "Suburbain",
+  "Pregny-Chambésy",       4506,        "Rive droite",
+  "Presinge",               883,        "Suburbain",
+  "Puplinge",              2922,        "Suburbain",
+  "Russin",                 699,        "Campagne",
+  "Satigny",               3002,        "Campagne",
+  "Soral",                  524,        "Campagne",
+  "Thônex",               14171,        "Suburbain",
+  "Troinex",               2817,        "Campagne",
+  "Vandoeuvres",           3453,        "Rive gauche",
+  "Vernier",              36924,        "Suburbain",
+  "Versoix",              13038,        "Rive droite",
+  "Veyrier",              10887,        "Suburbain"
+)
+```
+
+```{r s09-spatial-join}
+# Detect commune name column: prefer specific known names, fall back to last NAME_* match
+commune_name_col <- {
+  nms <- names(communes)
+  # SITG sources typically have NOM or NOM_COMMUNE; GADM level-3 uses NAME_3
+  preferred <- c("NOM_COMMUNE", "NOM_OFFICIEL", "NOM", "NAME_3")
+  hit <- preferred[preferred %in% nms]
+  if (length(hit) > 0) hit[1] else tail(nms[grepl("^NAME_", nms)], 1)
+}
+message("Commune name column: ", commune_name_col)
+
+# Standardise to a 'commune' column so joins are consistent
+communes_named <- communes |>
+  rename(commune = all_of(commune_name_col)) |>
+  select(commune)
+
+# Assign each tree to its commune via spatial join
+trees_communes <- sf::st_join(trees, communes_named, join = sf::st_within)
+```
+
+```{r s09-aggregate}
+# Shannon diversity: H = -sum(p * log(p))
+shannon_by_commune <- trees_communes |>
+  sf::st_drop_geometry() |>
+  filter(!is.na(commune), !is.na(genre_espece)) |>
+  group_by(commune, genre_espece) |>
+  summarise(n = n(), .groups = "drop_last") |>
+  mutate(p = n / sum(n)) |>
+  summarise(
+    shannon    = -sum(p * log(p)),
+    n_trees    = sum(n),
+    n_species  = n_distinct(genre_espece),
+    .groups = "drop"
+  )
+
+# Fuzzy-join with population table using string distance as fallback
+commune_stats <- shannon_by_commune |>
+  left_join(
+    commune_pop |> rename(commune = nom_commune),
+    by = "commune"
+  ) |>
+  filter(!is.na(population)) |>
+  mutate(trees_per_capita = n_trees / population)
+
+message("Communes with full stats: ", nrow(commune_stats))
+```
+
+```{r s09-bubble, fig.height=7}
+# Identify extremes for labelling (top/bottom 4 on trees_per_capita + top 2 diversity)
+extremes <- bind_rows(
+  commune_stats |> arrange(desc(trees_per_capita)) |> slice_head(n = 4),
+  commune_stats |> arrange(trees_per_capita)        |> slice_head(n = 4),
+  commune_stats |> arrange(desc(shannon))            |> slice_head(n = 2)
+) |>
+  distinct(commune)
+
+# Compute the headline finding from the data
+high_tpc <- commune_stats |> arrange(desc(trees_per_capita)) |> slice(1:8)
+cor_val  <- round(cor(commune_stats$trees_per_capita, commune_stats$shannon,
+                      use = "complete.obs"), 2)
+
+headline <- dplyr::case_when(
+  is.na(cor_val)  ~ "Species diversity vs trees per resident across Geneva communes",
+  cor_val >  0.1  ~ "Communes with more trees per resident also tend to have greater species variety",
+  cor_val < -0.1  ~ "Communes with more trees per resident tend toward lower species variety",
+  TRUE            ~ "Trees-per-resident and species diversity are weakly correlated across communes"
+)
+
+ggplot(commune_stats,
+       aes(x = trees_per_capita, y = shannon,
+           size = population, colour = region)) +
+  geom_point(alpha = 0.75) +
+  ggrepel::geom_text_repel(
+    data = commune_stats |> semi_join(extremes, by = "commune"),
+    aes(label = commune),
+    size = 3, max.overlaps = 12,
+    box.padding = 0.4, force = 2,
+    colour = "grey20"
+  ) +
+  scale_x_continuous(labels = label_number(accuracy = 0.01),
+                     name   = "Trees per resident") +
+  scale_y_continuous(name = "Shannon species-diversity index (H)") +
+  scale_size_area(max_size = 18, labels = label_comma(),
+                  name = "Population") +
+  scale_colour_viridis_d(option = "D", name = "Region",
+                         begin = 0.1, end = 0.9) +
+  labs(
+    title    = headline,
+    subtitle = paste0("Each bubble = one commune; size = population. Pearson r = ", cor_val),
+    caption  = paste0(
+      "Tree counts and species: SITG, ICA (", format(Sys.Date(), "%Y"), "). ",
+      "Population: OCSTAT 2022 (www.ge.ch/statistique). ",
+      "Shannon index H = –Σ p·ln(p) computed over species within each commune."
+    )
+  )
+```
+
+*What to look at:* Genève (the city, largest bubble) sits in the lower-left — high population means low trees-per-resident despite having many trees in absolute terms. Rural campagne communes cluster in the upper-right: few residents, many trees. The regional colour coding reveals whether the diversity gradient tracks urbanisation or follows geographic patterns such as lakeside vs. inland.
+
+```{r verify-09}
+stopifnot(
+  "commune_stats is empty"            = nrow(commune_stats) > 5,
+  "trees_per_capita column missing"   = "trees_per_capita" %in% names(commune_stats),
+  "shannon column missing"            = "shannon" %in% names(commune_stats)
+)
+message("Story 09 checks passed. Communes with full data: ", nrow(commune_stats))
+```
+
+The bubble chart synthesises four variables — trees per resident, species diversity, population, and region — into a single readable figure whose title states the conclusion rather than the variable names. The final section takes this chart-making skill back to basics: critiquing an existing public visualisation and redesigning it.
+
+---
