@@ -1,0 +1,63 @@
+---
+title: "data viz course ggplot2 + sf"
+date: today
+format:
+  html:
+    self-contained: true
+    toc: true
+    toc-depth: 2
+    code-fold: show
+    code-tools: true
+    theme: cosmo
+    fig-width: 10
+    fig-height: 6
+    df-print: paged
+execute:
+  warning: false
+  message: false
+---
+```{r}
+library(sf)
+library(ggplot2)
+library(rnaturalearth)
+library(dplyr)
+```
+
+# 1. Vector data: countries as sf polygons
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+head(world)        # note the geometry column
+st_crs(world)      # the CRS travels with the data
+```
+# 2. Plain map — geom_sf reads the geometry column automatically
+```{r}
+ggplot(world) + geom_sf()
+```
+# 3. Choropleth — same grammar as any other ggplot
+```{r}
+ggplot(world) +
+  geom_sf(aes(fill = pop_est / 1e6)) +
+  scale_fill_viridis_c(name = "Population (M)", trans = "log10") +
+  theme_minimal()
+```
+# 4. Reproject — the projection IS a layer (coord_sf)
+```{r}
+ggplot(world) +
+  geom_sf(aes(fill = pop_est / 1e6)) +
+  coord_sf(crs = "+proj=eqearth") +
+  scale_fill_viridis_c(trans = "log10") +
+  theme_minimal()
+```
+# 5. Layer points on top — proportional symbols
+```{r}
+capitals <- ne_download(scale = "medium",
+                        type  = "populated_places",
+                        returnclass = "sf")
+ggplot(world) +
+  geom_sf(fill = "grey92", colour = "white") +
+  geom_sf(data = capitals,
+          aes(size = POP_MAX), alpha = 0.5, colour = "firebrick") +
+  coord_sf(crs = "+proj=eqearth") +
+  scale_size_area(max_size = 8) +
+  theme_void()
+  ```

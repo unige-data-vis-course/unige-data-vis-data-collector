@@ -1206,3 +1206,125 @@ message("Story 09 checks passed. Communes with full data: ", nrow(commune_stats)
 The bubble chart synthesises four variables — trees per resident, species diversity, population, and region — into a single readable figure whose title states the conclusion rather than the variable names. The final section takes this chart-making skill back to basics: critiquing an existing public visualisation and redesigning it.
 
 ---
+
+## Critique and Redesign Capstone {#story-10}
+
+Good data visualisation is not just about making charts — it is about knowing *why* one choice is better than another. This section reproduces a typical default map of the ICA data, then redesigns it by applying principles accumulated throughout the notebook. The **learning objective** is to articulate critique precisely enough to act on it. The **grammar concept** integrates every lesson: encoding matches task, colour is accessible, ink is earned, and the title is the argument.
+
+```{r s10-load}
+trees    <- sf::st_read(here("data", "processed", "trees_clean.gpkg"), quiet = TRUE)
+communes <- sf::st_read(here("data", "processed", "communes_geneva.gpkg"), quiet = TRUE)
+
+# Commune name column (same detection as Story 09)
+commune_name_col <- {
+  nms <- names(communes)
+  preferred <- c("NOM_COMMUNE", "NOM_OFFICIEL", "NOM", "NAME_3")
+  hit <- preferred[preferred %in% nms]
+  if (length(hit) > 0) hit[1] else tail(nms[grepl("^NAME_", nms)], 1)
+}
+communes_named <- communes |> rename(commune = all_of(commune_name_col)) |> select(commune)
+
+# Commune-level tree count for choropleth
+trees_communes <- sf::st_join(trees, communes_named, join = sf::st_within)
+commune_counts <- trees_communes |>
+  sf::st_drop_geometry() |>
+  filter(!is.na(commune)) |>
+  count(commune, name = "n_trees")
+
+communes_with_counts <- communes_named |>
+  left_join(commune_counts, by = "commune") |>
+  mutate(n_trees = replace_na(n_trees, 0))
+```
+
+### "As published" — a default unordered choropleth
+
+The SITG online viewer renders tree inventory data as default-coloured points or as a choropleth with an arbitrary colour scale. The reconstruction below mimics that style: an unordered colour scale, no log transformation, a variable-name title, and no caption.
+
+```{r s10-original, fig.height=7}
+# Deliberate reproduction of a naive default choropleth
+p_original <- ggplot(communes_with_counts) +
+  geom_sf(aes(fill = n_trees), colour = "white", linewidth = 0.4) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue",
+                      name = "n_trees",
+                      labels = label_comma()) +
+  labs(
+    title   = "n_trees by commune",
+    caption = ""
+  )
+
+p_original
+```
+
+*Problems with this chart:*
+
+1. **Title names the variable, not the finding.** "n_trees by commune" tells the reader nothing they cannot already read from the legend.
+2. **Linear colour scale compresses the distribution.** Geneva city has ~50 000 trees; rural communes have ~50. A linear scale makes all rural communes appear identical (near zero).
+3. **Non-colourblind-safe palette.** The blue gradient is not part of a perceptually uniform, colourblind-safe sequence.
+4. **No source credit.** A map without a citation is unverifiable.
+
+### "Redesigned" — applying course principles
+
+```{r s10-redesigned, fig.height=7}
+# Verify viridis is colourblind-safe by simulating colour vision deficiencies
+# colorspace::demoplot() shows how viridis looks under protan/deutan/tritan conditions
+# (run interactively: colorspace::hclplot(viridis::viridis(9)))
+
+# log-transformed fill avoids the rural/urban compression problem
+p_redesigned <- ggplot(communes_with_counts |> filter(n_trees > 0)) +
+  geom_sf(
+    aes(fill = n_trees),
+    colour = "white", linewidth = 0.4
+  ) +
+  geom_sf(
+    data = communes_with_counts |> filter(n_trees == 0),
+    fill = "grey90", colour = "white", linewidth = 0.4
+  ) +
+  scale_fill_viridis_c(
+    option    = "D",
+    trans     = "log10",
+    labels    = label_comma(),
+    name      = "Trees\n(log scale)",
+    breaks    = c(50, 200, 1000, 5000, 50000)
+  ) +
+  labs(
+    title    = "Geneva city concentrates half the canton's trees in one commune",
+    subtitle = "Logarithmic scale reveals structure in both city and rural communes",
+    caption  = "Source: SITG, ICA — SIPV_ICA_ARBRE_ISOLE. Communes with 0 trees shown in grey."
+  ) +
+  theme(
+    panel.grid       = element_blank(),
+    axis.text        = element_blank(),
+    axis.ticks       = element_blank()
+  )
+
+p_redesigned
+```
+
+### Side by side
+
+```{r s10-patchwork, fig.height=7, fig.width=14}
+p_original + labs(tag = "As published") |
+p_redesigned + labs(tag = "Redesigned")
+```
+
+### Justification table
+
+| Principle invoked | Change made | Expected effect on reader |
+|---|---|---|
+| Cleveland-McGill task hierarchy | Log₁₀ colour scale instead of linear | Reader can distinguish rural communes instead of seeing a uniform blue pool |
+| Pre-attentive attributes (value contrast) | Viridis perceptually-uniform palette | Accurate lightness decoding without hue-discrimination artefacts |
+| Colourblind safety (`colorspace`) | Viridis is colourblind-safe by design | Chart is readable by ~8 % of male readers who have red-green colour blindness |
+| Tufte — remove chartjunk | Eliminated panel grid and axis tick marks | Cartographic context carries spatial reference; grid lines add visual noise |
+| Sentence-style title as argument | "Geneva city concentrates half the canton's trees…" | Reader knows the finding before studying the colours |
+
+### Honest concession
+
+The original linear scale has one genuine advantage: it conveys absolute counts without asking the reader to mentally exponentiate. A colleague comparing two suburban communes of similar size — say Lancy and Thônex — can immediately see from the original chart that Lancy has roughly twice as many trees, because the colour difference maps directly to the numeric difference. On the log scale, that same doubling appears as a modest shift in lightness, which is less intuitive for readers unfamiliar with logarithmic reasoning. The redesign wins for cross-scale comparison (city vs. village) but loses some of the perceptual immediacy for within-tier comparisons. A dual-panel display — one linear for local comparisons, one log for full-range context — would be the most honest solution, at the cost of visual complexity.
+
+```{r verify-10}
+stopifnot(
+  "communes_with_counts empty" = nrow(communes_with_counts) > 0,
+  "n_trees column missing"     = "n_trees" %in% names(communes_with_counts)
+)
+message("Story 10 checks passed. All ten stories complete.")
+```
