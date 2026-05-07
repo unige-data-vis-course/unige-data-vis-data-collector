@@ -1,0 +1,107 @@
+---
+title: "Graamr of Graphics"
+output: html_notebook
+---
+
+```{r package_setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(palmerpenguins)
+
+library(here)
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+```{r data_table}
+knitr::kable(
+  head(penguins, 20),
+  caption = "penguins dataset"
+)
+```
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(
+    x = bill_length_mm,
+    y = body_mass_g)
+) +
+  geom_point()
+```
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(
+    x = bill_length_mm,
+    y = body_mass_g,
+    colour = species
+  )
+) +
+  geom_point()
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(
+    x = bill_length_mm,
+    y = body_mass_g,
+    colour = species
+  )
+) +
+  geom_point() +
+  geom_smooth(method = "lm")
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(
+    x = bill_length_mm,
+    y = body_mass_g
+  )
+) +
+  geom_point() +
+  scale_x_log10()
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(
+    x = bill_length_mm,
+    y = body_mass_g,
+    colour = species
+  )
+) +
+  geom_point() +
+  facet_wrap(~island)
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(
+    x = "",
+    fill = species
+  )
+) +
+  geom_bar()
+```
+
+```{r}
+ggplot(
+  data = penguins,
+  mapping = aes(
+    x = "",
+    fill = species
+  )
+) +
+  geom_bar() +
+  coord_polar(theta = "y")
+```

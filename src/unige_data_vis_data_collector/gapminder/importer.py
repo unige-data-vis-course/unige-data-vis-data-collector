@@ -27,11 +27,17 @@ class GapminderImporter:
             self._concepts = GapminderConcepts([self._row_to_concept(r) for r in rows])
         return self._concepts
 
-    def by_country_data(self, concept_id: str) -> DataFrame:
-        return pd.read_csv(self.by_country_csv_filename(concept_id))
+    def by_geo_country_data(self, concept_id: str) -> DataFrame:
+        return pd.read_csv(self.by_geo_country_csv_filename(concept_id))
 
-    def by_country_csv_filename(self, concept_id: str) -> Path:
-        return self.source_dir / "countries_etc_datapoints" / f"ddf--datapoints--{concept_id}--by--country--time.csv"
+    def by_geo_country_csv_filename(self, concept_id: str) -> Path:
+        f1 = self.source_dir / "countries_etc_datapoints" / f"ddf--datapoints--{concept_id}--by--country--time.csv"
+        if f1.exists():
+            return f1
+        f2 = self.source_dir / "countries_etc_datapoints" / f"ddf--datapoints--{concept_id}--by--geo--time.csv"
+        if f2.exists():
+            return f2
+        raise FileNotFoundError(f"No datapoints CSV found for concept {concept_id} in {f1} or {f2}")
 
     @staticmethod
     def _normalize_source_dir(source_dir: Union[str, Path]) -> Path:

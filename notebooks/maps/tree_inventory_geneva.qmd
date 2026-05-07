@@ -126,7 +126,7 @@ trees_raw <- sf::st_read(here("data", "processed", "trees_geneva.gpkg"), quiet =
 # Key mappings (SITG field → notebook name):
 #   NOM_COMPLE  → genre_espece  (species binomial, up to 50 chars)
 #   HAUTEUR_TO  → hauteur       (total height, metres)
-#   CIRCONFERE  → circonfere    (trunk circumference, cm; DBH = circonfere/pi)
+#   CIRCONFERE  → circonfere    (trunk circumference, m; DBH = circonfere/pi)
 #   DIAMETRE_C  → diametre_couronne (crown diameter, metres)
 #   RAYON_COUR  → rayon_couronne (crown radius, metres)
 #   DATE_PLANT  → date_plantation_raw (string YYYYMMDD)
@@ -144,7 +144,8 @@ trees <- trees_raw |>
     esperance_vie      = esperance_
   ) |>
   mutate(
-    # DBH (diameter at breast height) derived from circumference
+    # Convert circumference from cm to m, then derive DBH (m)
+    circonfere     = circonfere / 100,
     diametre_tronc = circonfere / pi,
     # Parse planting date: stored as YYYYMMDD string
     date_plantation = suppressWarnings(
@@ -200,7 +201,7 @@ trees |>
 *What to look at:* Most geometric and biological fields are complete. The planting-date column stands out as systematically sparse — this is not random dropout but a structured gap driven by survey era, as the next paragraph explains.
 
 ```{r numeric-histograms}
-p_haut <- ggplot(trees |> filter(!is.na(hauteur), hauteur > 0),
+p_haut <- ggplot(trees |> filter(!is.na(hauteur), hauteur > 0, hauteur < 60),
                  aes(x = hauteur)) +
   geom_histogram(binwidth = 2, fill = viridis::viridis(1, begin = 0.4),
                  colour = "white") +
@@ -208,12 +209,12 @@ p_haut <- ggplot(trees |> filter(!is.na(hauteur), hauteur > 0),
   labs(title = "Tree height distribution", x = "Total height (m)", y = "Count",
        caption = "Source: SITG, ICA")
 
-p_circ <- ggplot(trees |> filter(!is.na(circonfere), circonfere > 0),
+p_circ <- ggplot(trees |> filter(!is.na(circonfere), circonfere > 0, circonfere < 12),
                  aes(x = circonfere)) +
-  geom_histogram(binwidth = 20, fill = viridis::viridis(1, begin = 0.6),
+  geom_histogram(binwidth = 0.2, fill = viridis::viridis(1, begin = 0.6),
                  colour = "white") +
-  scale_x_continuous(labels = label_number(suffix = " cm")) +
-  labs(title = "Trunk circumference distribution", x = "Circumference (cm)", y = "Count",
+  scale_x_continuous(labels = label_number(suffix = " m")) +
+  labs(title = "Trunk circumference distribution", x = "Circumference (m)", y = "Count",
        caption = "Source: SITG, ICA")
 
 p_cour <- ggplot(trees |> filter(!is.na(diametre_couronne), diametre_couronne > 0),
@@ -286,7 +287,7 @@ This section builds a single chart from scratch across four incremental steps, m
 trees <- sf::st_read(here("data", "processed", "trees_clean.gpkg"), quiet = TRUE)
 hauteur <- trees |>
   sf::st_drop_geometry() |>
-  filter(!is.na(hauteur), hauteur > 0)
+  filter(!is.na(hauteur), hauteur > 0, hauteur < 60)
 ```
 
 **Step 1 — data + aesthetic only.** We declare what goes on each axis. No geometry yet, so the plot is an empty canvas with labelled axes.
@@ -374,23 +375,23 @@ ggplot(hauteur, aes(x = hauteur)) +
 
 ### Log scale for trunk circumference
 
-Trunk circumference spans two orders of magnitude (a few centimetres for a young sapling to several hundred centimetres for a veteran tree), which compresses most of the distribution against the left axis on a linear scale.
+Trunk circumference spans two orders of magnitude (a few centimetres for a young sapling to several metres for a veteran tree), which compresses most of the distribution against the left axis on a linear scale.
 
 ```{r s03-log-compare}
 circ <- trees |>
   sf::st_drop_geometry() |>
-  filter(!is.na(circonfere), circonfere > 0)
+  filter(!is.na(circonfere), circonfere > 0, circonfere < 12)
 
 p_lin <- ggplot(circ, aes(x = circonfere)) +
   geom_histogram(bins = 60, fill = viridis::viridis(1, begin = 0.5), colour = "white") +
-  scale_x_continuous(labels = label_number(suffix = " cm")) +
-  labs(title = "Linear scale", x = "Circumference (cm)", y = "Count",
+  scale_x_continuous(labels = label_number(suffix = " m")) +
+  labs(title = "Linear scale", x = "Circumference (m)", y = "Count",
        caption = "Source: SITG, ICA")
 
 p_log <- ggplot(circ, aes(x = circonfere)) +
   geom_histogram(bins = 60, fill = viridis::viridis(1, begin = 0.7), colour = "white") +
-  scale_x_log10(labels = label_number(suffix = " cm")) +
-  labs(title = "Log₁₀ scale", x = "Circumference (cm, log scale)", y = "Count",
+  scale_x_log10(labels = label_number(suffix = " m")) +
+  labs(title = "Log₁₀ scale", x = "Circumference (m, log scale)", y = "Count",
        caption = "Source: SITG, ICA")
 
 p_lin | p_log
@@ -558,7 +559,7 @@ biv <- trees |>
   sf::st_drop_geometry() |>
   filter(
     !is.na(hauteur), hauteur > 0, hauteur < 60,
-    !is.na(diametre_tronc), diametre_tronc > 0, diametre_tronc < 300
+    !is.na(diametre_tronc), diametre_tronc > 0, diametre_tronc < 3
   )
 ```
 
@@ -567,12 +568,12 @@ biv <- trees |>
 ```{r s05-scatter}
 ggplot(biv, aes(x = diametre_tronc, y = hauteur)) +
   geom_point(size = 0.3) +
-  scale_x_continuous(labels = label_number(suffix = " cm")) +
+  scale_x_continuous(labels = label_number(suffix = " m")) +
   scale_y_continuous(labels = label_number(suffix = " m")) +
   labs(
     title    = "DBH vs height — overplotting hides all structure",
     subtitle = paste0(comma(nrow(biv)), " points fully occlude each other"),
-    x        = "Trunk diameter (cm, derived from circumference / π)",
+    x        = "Trunk diameter (m, derived from circumference / π)",
     y        = "Total height (m)",
     caption  = "Source: SITG, ICA"
   )
@@ -585,12 +586,12 @@ ggplot(biv, aes(x = diametre_tronc, y = hauteur)) +
 ```{r s05-alpha}
 ggplot(biv, aes(x = diametre_tronc, y = hauteur)) +
   geom_point(size = 0.2, alpha = 0.02) +
-  scale_x_continuous(labels = label_number(suffix = " cm")) +
+  scale_x_continuous(labels = label_number(suffix = " m")) +
   scale_y_continuous(labels = label_number(suffix = " m")) +
   labs(
     title    = "Alpha = 0.02 begins to reveal the dense core",
     subtitle = "50 overlapping points reach full opacity",
-    x        = "Trunk diameter (cm)", y = "Total height (m)",
+    x        = "Trunk diameter (m)", y = "Total height (m)",
     caption  = "Source: SITG, ICA"
   )
 ```
@@ -602,12 +603,12 @@ ggplot(biv, aes(x = diametre_tronc, y = hauteur)) +
   geom_hex(bins = 60) +
   scale_fill_viridis_c(option = "D", labels = label_comma(),
                        name = "Trees\nper cell") +
-  scale_x_continuous(labels = label_number(suffix = " cm")) +
+  scale_x_continuous(labels = label_number(suffix = " m")) +
   scale_y_continuous(labels = label_number(suffix = " m")) +
   labs(
     title    = "Hexagonal bins: 60 × 60 grid, colour = count",
     subtitle = "Most trees are small; tall wide-crowned specimens are rare outliers",
-    x        = "Trunk diameter (cm)", y = "Total height (m)",
+    x        = "Trunk diameter (m)", y = "Total height (m)",
     caption  = "Source: SITG, ICA"
   )
 ```
@@ -618,12 +619,12 @@ ggplot(biv, aes(x = diametre_tronc, y = hauteur)) +
 ggplot(biv, aes(x = diametre_tronc, y = hauteur)) +
   geom_density_2d_filled(bins = 10) +
   scale_fill_viridis_d(option = "D", guide = "none") +
-  scale_x_continuous(labels = label_number(suffix = " cm")) +
+  scale_x_continuous(labels = label_number(suffix = " m")) +
   scale_y_continuous(labels = label_number(suffix = " m")) +
   labs(
     title    = "2-D kernel density — contours of equal tree density",
     subtitle = "Gradient replaces counts with a continuous probability surface",
-    x        = "Trunk diameter (cm)", y = "Total height (m)",
+    x        = "Trunk diameter (m)", y = "Total height (m)",
     caption  = "Source: SITG, ICA"
   )
 ```
@@ -640,12 +641,12 @@ ggplot(biv |> slice_sample(n = 30000), aes(x = diametre_tronc, y = hauteur)) +
   geom_smooth(method = "lm", formula = y ~ log(x),
               colour = "firebrick", linewidth = 1.2, se = TRUE) +
   scale_fill_viridis_c(option = "D", guide = "none") +
-  scale_x_log10(labels = label_number(suffix = " cm")) +
+  scale_x_log10(labels = label_number(suffix = " m")) +
   scale_y_continuous(labels = label_number(suffix = " m")) +
   labs(
     title    = "Height grows as a power function of trunk diameter",
     subtitle = "Allometric scaling H = a·DBH^b; log₁₀ x-axis linearises the curve",
-    x        = "Trunk diameter (cm, log scale)", y = "Total height (m)",
+    x        = "Trunk diameter (m, log scale)", y = "Total height (m)",
     caption  = "Source: SITG, ICA"
   )
 ```
@@ -668,13 +669,13 @@ ggplot(biv6, aes(x = diametre_tronc, y = hauteur)) +
   geom_smooth(method = "lm", formula = y ~ log(x),
               colour = "firebrick", linewidth = 0.9, se = FALSE) +
   scale_fill_viridis_c(option = "D", guide = "none") +
-  scale_x_log10(labels = label_number(suffix = " cm")) +
+  scale_x_log10(labels = label_number(suffix = " m")) +
   scale_y_continuous(labels = label_number(suffix = " m")) +
   facet_wrap(~ genre_espece, ncol = 3, scales = "fixed") +
   labs(
     title    = "Allometric relationship varies across the six most abundant species",
     subtitle = "Fixed y axis preserves absolute height comparisons across panels",
-    x        = "Trunk diameter (cm, log scale)", y = "Total height (m)",
+    x        = "Trunk diameter (m, log scale)", y = "Total height (m)",
     caption  = "Source: SITG, ICA"
   )
 ```

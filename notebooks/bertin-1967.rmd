@@ -1,0 +1,520 @@
+---
+title: "Sémiologie Graphique — Bertin 1967"
+subtitle: "10 représentations ggplot2 des 90 départements français"
+output: html_notebook
+---
+
+Jacques Bertin's *Sémiologie graphique* (1967) defined the grammar of graphics through **retinal variables**: position, size, value (lightness), texture, colour, orientation, and shape. His canonical dataset — the active population of 90 French *départements* split across agriculture, industry, and services — illustrates how the choice and ordering of these variables reveal structure.
+
+```{r package_setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(here)
+
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width  = 11,
+  fig.height = 7
+)
+
+sector_colors <- c(Agriculture = "#4daf4a", Industry = "#ff7f00", Services = "#377eb8")
+
+read_csv_locale <- function(path, ...) {
+  readr::read_csv(
+    path,
+    locale = readr::locale(decimal_mark = ".", grouping_mark = ","),
+    ...
+  )
+}
+```
+
+```{r load_data}
+bertin <- read_csv_locale(here::here("course", "bertin-1967.csv")) |>
+  mutate(
+    dominant = case_when(
+      agriculture >= industry & agriculture >= services ~ "Agriculture",
+      industry   >= agriculture & industry >= services ~ "Industry",
+      TRUE                                             ~ "Services"
+    ),
+    dominant = factor(dominant, levels = c("Agriculture", "Industry", "Services"))
+  )
+
+bertin_long <- bertin |>
+  pivot_longer(
+    cols      = c(agriculture, industry, services),
+    names_to  = "sector",
+    values_to = "pct"
+  ) |>
+  mutate(
+    sector = recode(sector,
+      agriculture = "Agriculture",
+      industry    = "Industry",
+      services    = "Services"
+    ),
+    sector = factor(sector, levels = c("Agriculture", "Industry", "Services"))
+  )
+
+glimpse(bertin)
+```
+
+```{r data_table}
+knitr::kable(
+  head(bertin, 20),
+  caption = "Bertin (1967) — 20 premiers départements (% actifs par secteur)",
+  col.names = c("Code", "Département", "Agriculture", "Industrie", "Services", "Secteur dominant")
+)
+```
+
+---
+
+## 1. Lollipop chart — variable visuelle : POSITION (ordonné)
+
+The simplest and most powerful Bertin tool: **ordering** a single quantitative variable maps it to position on a common scale, allowing immediate rank-reading.
+
+```{r plot_01, fig.height=14, fig.width=9}
+bertin |>
+  arrange(agriculture) |>
+  mutate(department = factor(department, levels = department)) |>
+  ggplot(aes(x = agriculture, y = department)) +
+  geom_segment(aes(x = 0, xend = agriculture, yend = department),
+               colour = sector_colors["Agriculture"], alpha = 0.45) +
+  geom_point(colour = sector_colors["Agriculture"], size = 2.5) +
+  labs(
+    title    = "% actifs en agriculture par département (trié)",
+    subtitle = "Variable visuelle : POSITION — Bertin (1967) §2.3",
+    x = "Agriculture (%)", y = NULL
+  ) +
+  theme_minimal(base_size = 22) +
+  theme(axis.text.y = element_text(size = 7))
+```
+
+---
+
+## 2. Matrice réordonnée — variable visuelle : VALEUR (clarté)
+
+Bertin's signature contribution: the **reorderable matrix**. Rows (départements) are sorted by agriculture; columns are the three sectors. Cell lightness encodes magnitude. Reordering reveals the dominant gradient.
+
+```{r plot_02, fig.height=14, fig.width=5}
+dept_order <- bertin |> arrange(desc(agriculture)) |> pull(department)
+
+bertin_long |>
+  mutate(department = factor(department, levels = dept_order)) |>
+  ggplot(aes(x = sector, y = department, fill = pct)) +
+  geom_tile(colour = "white", linewidth = 0.3) +
+  scale_fill_gradient(low = "white", high = "#1a3a6b", name = "%") +
+  labs(
+    title    = "Matrice réordonnée — population active par secteur",
+    subtitle = "Variable visuelle : VALEUR — lignes triées par agriculture décroissante",
+    x = NULL, y = NULL
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    axis.text.y   = element_text(size = 6),
+    legend.position = "right"
+  )
+```
+
+---
+
+## 3. Barres empilées 100 % — variable visuelle : TAILLE (aire)
+
+Area proportional to share. Sorting by agriculture makes the agricultural–industrial gradient legible along the x-axis — a direct application of Bertin's principle of **ordered series**.
+
+```{r plot_03, fig.height=6, fig.width=13}
+bertin |>
+  arrange(desc(agriculture)) |>
+  mutate(department = factor(department, levels = department)) |>
+  pivot_longer(c(agriculture, industry, services),
+               names_to = "sector", values_to = "pct") |>
+  mutate(
+    sector = recode(sector,
+      agriculture = "Agriculture", industry = "Industry", services = "Services"),
+    sector = factor(sector, levels = c("Services", "Industry", "Agriculture"))
+  ) |>
+  ggplot(aes(x = department, y = pct, fill = sector)) +
+  geom_col(width = 1) +
+  scale_fill_manual(values = sector_colors) +
+  labs(
+    title    = "Composition de la population active — barres empilées 100 %",
+    subtitle = "Variable visuelle : TAILLE — triées par agriculture décroissante (gauche → droite)",
+    x = NULL, y = "%", fill = NULL
+  ) +
+  theme_minimal(base_size = 22) +
+  theme(
+    axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 10),
+    legend.position = "top"
+  )
+```
+
+---
+
+## 4. Nuage de points — variable visuelle : POSITION (deux axes)
+
+Two quantitative variables mapped to x and y. The strong negative correlation between agriculture and industry is the key structural finding of Bertin's analysis — urban-industrial France vs rural France.
+
+```{r plot_04}
+label_dept <- bertin |>
+  filter(agriculture > 55 | industry > 50 | agriculture < 3)
+
+bertin |>
+  ggplot(aes(x = agriculture, y = industry, colour = dominant)) +
+  geom_point(size = 3, alpha = 0.85) +
+  geom_smooth(method = "lm", se = FALSE, colour = "grey50",
+              linetype = "dashed", linewidth = 0.7) +
+  geom_text(data = label_dept, aes(label = department),
+            size = 2.8, hjust = -0.08, vjust = 0.4) +
+  scale_colour_manual(values = sector_colors) +
+  labs(
+    title    = "Agriculture vs Industrie",
+    subtitle = "Variable visuelle : POSITION — corrélation négative, couleur = secteur dominant",
+    x = "Agriculture (%)", y = "Industrie (%)", colour = "Secteur dominant"
+  ) +
+  theme_minimal(base_size = 22)
+```
+
+---
+
+## 5. Carte à bulles — variable visuelle : TAILLE (surface)
+
+Three variables in one plane: position (agriculture, services) + size (industry). Bertin called size the only truly **quantitative** retinal variable after position.
+
+```{r plot_05}
+bertin |>
+  ggplot(aes(x = agriculture, y = services,
+             size = industry, colour = dominant)) +
+  geom_point(alpha = 0.65) +
+  scale_size_area(max_size = 15, name = "Industrie (%)") +
+  scale_colour_manual(values = sector_colors) +
+  labs(
+    title    = "Agriculture × Services × Industrie (taille)",
+    subtitle = "Variable visuelle : TAILLE — surface proportionnelle à % industrie",
+    x = "Agriculture (%)", y = "Services (%)", colour = "Secteur dominant"
+  ) +
+  theme_minimal(base_size = 22)
+```
+
+---
+
+## 6. Coordonnées parallèles — profils multivariés
+
+Each line is one département; each vertical axis is one sector (normalised 0–1). Lines crossing from high agriculture to high services reveal the **bipolarity** Bertin identified in the data.
+
+```{r plot_06}
+scale01 <- function(x) (x - min(x)) / (max(x) - min(x))
+
+bertin |>
+  mutate(across(c(agriculture, industry, services), scale01,
+                .names = "{.col}_n")) |>
+  pivot_longer(cols = ends_with("_n"),
+               names_to = "sector", values_to = "value") |>
+  mutate(
+    sector = recode(sector,
+      agriculture_n = "Agriculture", industry_n = "Industry", services_n = "Services"),
+    sector = factor(sector, levels = c("Agriculture", "Industry", "Services"))
+  ) |>
+  ggplot(aes(x = sector, y = value,
+             group = department, colour = dominant)) +
+  geom_line(alpha = 0.7, linewidth = 1) +
+  scale_colour_manual(values = sector_colors) +
+  labs(
+    title    = "Coordonnées parallèles — profils des 90 départements",
+    subtitle = "Variable visuelle : POSITION — chaque ligne = un département, valeurs normalisées [0–1]",
+    x = NULL, y = "Valeur normalisée", colour = "Secteur dominant"
+  ) +
+  theme_minimal(base_size = 22)
+```
+
+---
+
+## 7. Histogrammes — distributions marginales
+
+How is each sector distributed across the 90 départements? Agriculture is right-skewed (most départements have moderate agriculture); industry and services show distinct modes.
+
+```{r plot_07, fig.height=7}
+bertin_long |>
+  ggplot(aes(x = pct, fill = sector)) +
+  geom_histogram(bins = 16, colour = "white", linewidth = 0.3) +
+  facet_wrap(~sector, ncol = 1, scales = "free_y") +
+  scale_fill_manual(values = sector_colors) +
+  labs(
+    title    = "Distribution de la population active par secteur",
+    subtitle = "Variable visuelle : POSITION — histogrammes des 90 départements",
+    x = "% actifs", y = "Nombre de départements"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+---
+
+## 8. Graphe divergent — écart à la moyenne nationale
+
+Signed deviation from the national mean highlights **above/below-average** départements. Bertin emphasised that ordering and a reference line turn raw values into a relational reading.
+
+```{r plot_08, fig.height=14, fig.width=9}
+avg_agri <- mean(bertin$agriculture)
+
+bertin |>
+  mutate(
+    dev  = agriculture - avg_agri,
+    department = factor(department, levels = department[order(dev)])
+  ) |>
+  ggplot(aes(x = dev, y = department, fill = dev > 0)) +
+  geom_col() +
+  geom_vline(xintercept = 0, colour = "black", linewidth = 0.5) +
+  scale_fill_manual(
+    values = c("FALSE" = "#0072B2", "TRUE" = "#E69F00"),
+    labels = c("Sous la moyenne", "Au-dessus de la moyenne"),
+    name   = NULL
+  ) +
+  labs(
+    title    = paste0("Écart au taux national d'agriculture (",
+                      round(avg_agri, 1), " %)"),
+    subtitle = "Variable visuelle : POSITION (signée) — divergence autour de la référence nationale",
+    x = "Écart (%)", y = NULL
+  ) +
+  theme_minimal(base_size = 22) +
+  theme(
+    axis.text.y    = element_text(size = 7),
+    legend.position = "top"
+  )
+```
+
+---
+
+## 9. Petits multiples — comparaison par secteur dominant
+
+Faceting by dominant sector is Bertin's **selective reading**: isolate one category at a time while keeping the same visual encoding. Each panel is sorted internally by agriculture.
+
+```{r plot_09, fig.height=10, fig.width=12}
+dept_levels <- bertin |>
+  arrange(dominant, desc(agriculture)) |>
+  pull(department)
+
+bertin |>
+  mutate(department = factor(department, levels = dept_levels)) |>
+  ggplot(aes(x = agriculture, y = department, colour = dominant)) +
+  geom_point(size = 2.5) +
+  geom_segment(aes(x = 0, xend = agriculture, yend = department),
+               alpha = 0.3) +
+  facet_wrap(~dominant, scales = "free_y", ncol = 3) +
+  scale_colour_manual(values = sector_colors) +
+  labs(
+    title    = "Départements par secteur dominant — % agriculture",
+    subtitle = "Petits multiples (POSITION) — chaque panneau trié par agriculture décroissante",
+    x = "Agriculture (%)", y = NULL
+  ) +
+  theme_minimal(base_size = 22) +
+  theme(
+    legend.position  = "none",
+    axis.text.y      = element_text(size = 12),
+    strip.text       = element_text(face = "bold")
+  )
+```
+
+---
+
+## 10. Nuage étiqueté Agriculture × Services — frontières structurelles
+
+The agriculture–services scatter reveals the three **structural poles** of the French economy in 1967. Bertin used this bipolar reading to argue that colour is the natural variable to encode nominal categories once quantitative position is exhausted.
+
+```{r plot_10}
+extremes <- bertin |>
+  filter(
+    agriculture == max(agriculture) |
+    agriculture <= 2               |
+    services    == max(services)   |
+    services    <= 25              |
+    industry    == max(industry)
+  )
+
+bertin |>
+  ggplot(aes(x = agriculture, y = services, colour = dominant)) +
+  geom_point(size = 3.5, alpha = 0.8) +
+  ggplot2::geom_text(
+    data    = extremes,
+    aes(label = department),
+    size    = 3,
+    hjust   = -0.1,
+    vjust   = 0.4,
+    fontface = "italic"
+  ) +
+  scale_colour_manual(values = sector_colors) +
+  labs(
+    title    = "Agriculture × Services — pôles structurels de la France de 1967",
+    subtitle = "Variable visuelle : COULEUR (nominale) + POSITION — frontières des secteurs dominants",
+    x = "Agriculture (%)", y = "Services (%)",
+    colour = "Secteur dominant"
+  ) +
+  theme_minimal()
+```
+
+---
+
+## 11. Carte à camemberts — variable visuelle : COULEUR + TAILLE
+
+Pie charts positioned at each département's geographic centroid. Position encodes geography; colour encodes sector; arc area encodes share. This is Bertin's **proportional symbol** applied to compositional data on a spatial support.
+
+```{r plot_11, fig.width=12, fig.height=10}
+france_map <- ggplot2::map_data("france")
+
+dept_centroids <- data.frame(
+  department = c(
+    "Ain", "Aisne", "Allier", "Alpes-de-Haute-Provence", "Hautes-Alpes",
+    "Alpes-Maritimes", "Ardèche", "Ardennes", "Ariège", "Aube",
+    "Aude", "Aveyron", "Bouches-du-Rhône", "Calvados", "Cantal",
+    "Charente", "Charente-Maritime", "Cher", "Corrèze", "Corse",
+    "Côte-d'Or", "Côtes-du-Nord", "Creuse", "Dordogne", "Doubs",
+    "Drôme", "Eure", "Eure-et-Loir", "Finistère", "Gard",
+    "Haute-Garonne", "Gers", "Gironde", "Hérault", "Ille-et-Vilaine",
+    "Indre", "Indre-et-Loire", "Isère", "Jura", "Landes",
+    "Loir-et-Cher", "Loire", "Haute-Loire", "Loire-Atlantique", "Loiret",
+    "Lot", "Lot-et-Garonne", "Lozère", "Maine-et-Loire", "Manche",
+    "Marne", "Haute-Marne", "Mayenne", "Meurthe-et-Moselle", "Meuse",
+    "Morbihan", "Moselle", "Nièvre", "Nord", "Oise",
+    "Orne", "Pas-de-Calais", "Puy-de-Dôme", "Basses-Pyrénées", "Hautes-Pyrénées",
+    "Pyrénées-Orientales", "Bas-Rhin", "Haut-Rhin", "Rhône", "Haute-Saône",
+    "Saône-et-Loire", "Sarthe", "Savoie", "Haute-Savoie", "Seine",
+    "Seine-Maritime", "Seine-et-Marne", "Seine-et-Oise", "Deux-Sèvres", "Somme",
+    "Tarn", "Tarn-et-Garonne", "Var", "Vaucluse", "Vendée",
+    "Vienne", "Haute-Vienne", "Vosges", "Yonne", "Territoire de Belfort"
+  ),
+  lon = c(
+     5.33,  3.47,  3.17,  6.25,  6.27,
+     7.10,  4.40,  4.73,  1.60,  4.08,
+     2.50,  2.55,  5.40, -0.37,  2.57,
+     0.22, -0.80,  2.52,  2.00,  9.10,
+     4.83, -2.80,  2.00,  0.75,  6.43,
+     5.20,  1.05,  1.30, -4.08,  4.22,
+     1.40,  0.58, -0.52,  3.40, -1.70,
+     1.57,  0.72,  5.57,  5.58, -0.70,
+     1.38,  4.12,  3.72, -1.72,  2.00,
+     1.60,  0.48,  3.50, -0.60, -1.40,
+     4.10,  5.20, -0.58,  6.20,  5.30,
+    -2.80,  6.70,  3.52,  3.20,  2.50,
+     0.10,  2.33,  3.10, -0.80,  0.28,
+     2.60,  7.48,  7.32,  4.70,  6.10,
+     4.60,  0.20,  6.47,  6.42,  2.35,
+     1.05,  3.00,  2.02, -0.32,  2.32,
+     2.18,  1.28,  6.30,  5.10, -1.42,
+     0.50,  1.30,  6.48,  3.52,  6.87
+  ),
+  lat = c(
+    46.10, 49.52, 46.40, 44.05, 44.65,
+    43.90, 44.75, 49.70, 42.90, 48.30,
+    43.10, 44.28, 43.48, 49.10, 45.10,
+    45.70, 45.80, 47.00, 45.30, 42.20,
+    47.42, 48.50, 46.00, 45.10, 47.20,
+    44.70, 49.12, 48.43, 48.22, 43.90,
+    43.40, 43.68, 44.80, 43.60, 48.10,
+    46.80, 47.22, 45.28, 46.78, 44.00,
+    47.60, 45.52, 45.07, 47.33, 47.90,
+    44.62, 44.38, 44.50, 47.40, 49.00,
+    49.00, 48.08, 48.18, 48.72, 48.90,
+    47.80, 49.00, 47.10, 50.52, 49.38,
+    48.60, 50.50, 45.78, 43.30, 43.07,
+    42.60, 48.52, 47.92, 45.78, 47.62,
+    46.60, 48.00, 45.50, 46.00, 48.88,
+    49.62, 48.63, 48.88, 46.52, 49.90,
+    43.78, 44.08, 43.48, 44.00, 46.72,
+    46.60, 45.88, 48.18, 47.80, 47.62
+  ),
+  stringsAsFactors = FALSE
+)
+
+bertin_geo <- merge(bertin, dept_centroids, by = "department")
+
+make_pie_polygons <- function(data, r = 0.38) {
+  sectors <- c("Agriculture", "Industry", "Services")
+  out     <- vector("list", nrow(data) * 3L)
+  k       <- 0L
+  for (i in seq_len(nrow(data))) {
+    vals   <- c(data$agriculture[i], data$industry[i], data$services[i]) / 100
+    lon    <- data$lon[i]
+    lat    <- data$lat[i]
+    dept   <- data$department[i]
+    starts <- pi / 2 - c(0, cumsum(vals[-3])) * 2 * pi
+    ends   <- pi / 2 - cumsum(vals) * 2 * pi
+    lon_scale <- 1 / cos(lat * pi / 180)
+    for (j in 1:3) {
+      k        <- k + 1L
+      theta    <- seq(starts[j], ends[j], length.out = 20)
+      out[[k]] <- data.frame(
+        x          = c(lon, lon + r * lon_scale * cos(theta), lon),
+        y          = c(lat, lat + r * sin(theta), lat),
+        sector     = sectors[j],
+        department = dept,
+        group      = paste(dept, sectors[j]),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+  out        <- do.call(rbind, out)
+  out$sector <- factor(out$sector, levels = c("Agriculture", "Industry", "Services"))
+  out
+}
+
+pie_data <- make_pie_polygons(bertin_geo, r = 0.3)
+
+ggplot() +
+  geom_polygon(
+    data  = france_map,
+    aes(x = long, y = lat, group = group),
+    fill    = "grey92", colour = "white", linewidth = 0.25
+  ) +
+  geom_polygon(
+    data  = pie_data,
+    aes(x = x, y = y, group = group, fill = sector),
+    colour = NA
+  ) +
+  scale_fill_manual(values = sector_colors) +
+  coord_quickmap() +
+  labs(
+    title    = "11. Carte à camemberts — population active par département (1967)",
+    subtitle = "Variable visuelle : COULEUR + TAILLE (aire) — rayon fixe, secteurs en proportion",
+    x = NULL, y = NULL, fill = NULL
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(
+    axis.text       = element_blank(),
+    axis.ticks      = element_blank(),
+    panel.grid      = element_blank(),
+    legend.position = "bottom"
+  )
+```
+
+---
+
+## 12. Petits multiples : barres par département (12 colonnes)
+
+One panel per département, three bars per panel, sorted from most agricultural (top-left) to least (bottom-right). The grid reading replicates Bertin's **ordered matrix** in bar form — local bar height, global gradient.
+
+```{r plot_12, fig.width=18, fig.height=12}
+dept_ordered <- bertin |>
+  arrange(desc(agriculture)) |>
+  pull(department)
+
+bertin_long |>
+  mutate(department = factor(department, levels = dept_ordered)) |>
+  ggplot(aes(x = sector, y = pct, fill = sector)) +
+  geom_col(width = 0.85) +
+  scale_fill_manual(values = sector_colors) +
+  facet_wrap(~department, ncol = 12) +
+  labs(
+    title    = "12. Population active par secteur — 90 départements",
+    subtitle = "Petits multiples (12 colonnes) — triés par agriculture décroissante",
+    x = NULL, y = "%", fill = NULL
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(
+    axis.text.x     = element_blank(),
+    axis.ticks.x    = element_blank(),
+    strip.text      = element_text(size = 10),
+    panel.spacing   = unit(0.15, "lines"),
+    legend.position = "bottom"
+  )
+```

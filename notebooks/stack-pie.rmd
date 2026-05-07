@@ -1,0 +1,91 @@
+---
+title: "Bertin 1967 — Barres empilées (3 premiers départements)"
+output: html_notebook
+---
+
+```{r package_setup, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(here)
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.width = 7,
+  fig.height = 5
+)
+
+sector_colors <- c(Agriculture = "#4daf4a", Industry = "#ff7f00", Services = "#377eb8")
+
+read_csv_locale <- function(path, ...) {
+  readr::read_csv(
+    path,
+    locale = readr::locale(decimal_mark = ".", grouping_mark = ","),
+    ...
+  )
+}
+```
+
+```{r load_data}
+bertin_1 <- read_csv_locale(here::here("course", "bertin-1967.csv")) |>
+  slice(1:1) |>
+  arrange(desc(agriculture)) |>
+  mutate(department = factor(department, levels = department)) |>
+  pivot_longer(c(agriculture, industry, services),
+               names_to = "sector", values_to = "pct") |>
+  mutate(
+    sector = recode(sector,
+                    agriculture = "Agriculture",
+                    industry = "Industry",
+                    services = "Services"
+    ),
+    sector = factor(sector, levels = c("Services", "Industry", "Agriculture"))
+  )
+```
+
+```{r stacked_bar}
+ggplot(
+  bertin_1,
+  aes(
+    x = department,
+    y = pct,
+    fill = sector
+  )
+) +
+  geom_col() +
+  scale_fill_manual(values = sector_colors) +
+  labs(
+    title = "Composition de la population active ",
+    subtitle = "Département de l'Ain",
+    x = NULL,
+    y = "%",
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(legend.position = "top")
+```
+```{r pie_chart}
+ggplot(
+  bertin_1,
+  aes(
+    x = department,
+    y = pct,
+    fill = sector
+  )
+) +
+  geom_col() +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = sector_colors) +
+  labs(
+    title = "Composition de la population active",
+    subtitle = "Département de l'Ain",
+    x = NULL,
+    y = "%",
+    fill = NULL
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(legend.position = "top")
+```
