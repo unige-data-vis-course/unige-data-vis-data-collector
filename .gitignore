@@ -9,3 +9,5 @@ __pycache__
 /kanban-simulator.html
 .DS_Store
 *.html
+data/processed/
+data/raw/
